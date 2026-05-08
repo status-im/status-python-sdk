@@ -733,6 +733,47 @@ account.login(**params)
 del account.bio
 ```
 
+### `profile_picture`
+
+Get or update the **profile picture** of the currently logged‑in account. The image is the same one shown on the user's profile in Status App.
+
+Returns `PIL.Image.Image` when reading the property, or `None` if no profile picture has been set.
+
+```python
+from bot import Account
+
+account = Account()
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Read the current profile picture
+image = account.profile_picture
+if image:
+    image.show()
+```
+
+The file path assigned to `profile_picture` will be automatically set as the latest profile picture in Status App. If the given file does not exist or the extension is not supported, an **exception will be raised**. Supported image formats are `.jpg`, `.jpeg` and `.png`.
+
+```python
+from bot import Account
+
+account = Account()
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Update the profile picture
+account.profile_picture = "./full_path/to/my_image.png"
+account.profile_picture.show()
+```
+
+When a new profile picture is set, any previous image in the **assets** folder is removed. The image is also copied into the Status Backend Docker volume so it is picked up by the backend when updating the account identity.
+
 ### `signal`
 
 The property exists in `Account` because signals require an **active logged‑in session**. Attempting to use signals before calling `login()` will raise an exception. Signals are low‑level events emitted by the Status Backend. Examples include:

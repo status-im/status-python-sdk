@@ -1,8 +1,11 @@
 from typing import Optional, Union, Generator, Any
-import requests, datetime, re, logging, os, json, ast
+import requests, datetime, re, logging, os, json, ast, shutil
 import pandas as pd
+from PIL import Image
+from PIL.JpegImagePlugin import JpegImageFile
 from .signal import Signal
 from .logger import Logger
+
 class Account:
 
     # Enum mappings from original wakuext.py
@@ -19,7 +22,8 @@ class Account:
         "messaging": "wakuext",
         "urls": "sharedurls",
         "wallets": "wallet",
-        "account": "accounts"
+        "account": "accounts",
+        "identity": "multiaccounts"
     }
     def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False):
         """
@@ -38,6 +42,13 @@ class Account:
         # NOTE: This might change for initial release
         self.__backup_local_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups")
         os.makedirs(self.__backup_local_folder, exist_ok=True)
+        # Path of where images will be uploaded to Status Backend
+        self.__docker_asset_folder = "./assets"
+        # As the docker-compose.yaml folder is at the moment
+        # NOTE: This might change for initial release
+        self.__assets_local_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        os.makedirs(self.__assets_local_folder, exist_ok=True)
+
         self.__logger = Logger()
         self.__timestamp_divisor = 1_000
         self.__kd_iterations = 256000
@@ -283,6 +294,69 @@ class Account:
     @bio.deleter
     def bio(self):
         self.bio = ""
+
+    @property
+    def profile_picture(self) -> Optional[JpegImageFile]:
+        """
+        Get current profile picture
+        """
+        files = [
+            os.path.join(self.__assets_local_folder, f)
+            for f in os.listdir(self.__assets_local_folder)
+            if os.path.isfile(os.path.join(self.__assets_local_folder, f))
+        ]
+        if not files:
+            return
+
+        latest_file_path = max(files, key=os.path.getctime)
+        for file in files:
+          if file == latest_file_path:
+            continue
+          os.remove(file)
+
+        return Image.open(latest_file_path)
+
+    @profile_picture.setter
+    def profile_picture(self, file_path: str):
+
+        if not isinstance(file_path, str):
+            return
+
+        if not os.path.exists(file_path):
+            raise Exception(f"File path {file_path} does not exist")
+
+        suffix = (".jpg", ".png", ".jpeg")
+        if not file_path.endswith(suffix):
+            raise Exception(f"Image must be one of the following extensions: {suffix}")
+
+        file_name = os.path.basename(file_path)
+
+        extension = file_name.split(".")[-1]
+        asset_file_name = f"profile.{extension}"
+        asset_file_path = os.path.join(self.__assets_local_folder, asset_file_name)
+        docker_file_path = self.__docker_asset_folder + "/" + asset_file_name
+        for file_name in os.listdir(self.__assets_local_folder):
+            current_file_path = os.path.join(self.__assets_local_folder, file_name)
+            if not os.path.isfile(current_file_path) or current_file_path == file_path:
+                continue
+            os.remove(current_file_path)
+
+        try:
+            shutil.copy(file_path, asset_file_path)
+        except shutil.SameFileError:
+            self.logger.info("File is already in asset path")
+
+        img = Image.open(asset_file_path)
+        params = [
+            self.info["key_uid"],
+            docker_file_path,
+            0,
+            0,
+            *img.size
+        ]
+        self.logger.info(f"Setting {file_path} as profile picture")
+        self.__call_rpc("identity", "storeIdentityImage", params)
+        self.logger.info(f"Profile picture has been updated!")
 
     @property
     def contacts(self) -> dict[str, dict]:

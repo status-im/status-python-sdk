@@ -184,6 +184,7 @@ def create_bot(config: dict) -> Account:
     if account.info["compressed_key"] != config["bot"]["compressed_key"]:
         raise Exception("Target compressed key and logged in compressed key are different")
 
+    account.profile_picture = os.path.join(os.path.dirname(__file__), "assets", "profile.jpg")
     account.logger.info(f"Account Information:\nCompressed Key: {account.info['compressed_key']}\nPublic Key: {account.info['public_key']}\nURL: {account.info['url']}")
     return account
 

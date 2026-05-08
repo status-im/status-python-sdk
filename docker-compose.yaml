@@ -14,6 +14,7 @@ services:
         command: '-address 0.0.0.0:8080'
         volumes:
             - ./backups:/root/.config/Status/backups
+            - ./assets:/assets:ro
         networks:
             - status-bridge
         healthcheck:
