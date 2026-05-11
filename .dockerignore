@@ -9,3 +9,6 @@ __pycache__/
 # Status Bot
 uploads/
 bot/docs
+
+config.yaml
+.env
