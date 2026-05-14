@@ -182,7 +182,16 @@ def create_bot(config: dict) -> Account:
 
     account.login(**params)
     if account.info["compressed_key"] != config["bot"]["compressed_key"]:
-        raise Exception("Target compressed key and logged in compressed key are different")
+        raise Exception("Target compressed key and logged in compressed key are different...")
+    else:
+        account.logger.info("[SUCCESS] Logged in with correct account")
+
+    balance = account["GBP"]
+    query = (balance["symbol"] == "SNT") & (balance["fiat_value"] > 0) & (balance["chain_id"] == 1)
+    if query.sum() != 1:
+        raise Exception("There were issues with Infura Token and Coingecko initialization...")
+    else:
+        account.logger.info("[SUCCESS] Wallet balance is available")
 
     account.profile_picture = os.path.join(os.path.dirname(__file__), "assets", "profile.jpg")
     account.logger.info(f"Account Information:\nCompressed Key: {account.info['compressed_key']}\nPublic Key: {account.info['public_key']}\nURL: {account.info['url']}")
