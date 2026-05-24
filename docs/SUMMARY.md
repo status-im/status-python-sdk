@@ -1,3 +1,0 @@
-# Summary
-
-[Account](./account.md)
