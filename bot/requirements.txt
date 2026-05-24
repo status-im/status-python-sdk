@@ -1,5 +1,0 @@
-requests
-websocket-client
-websockets
-pandas
-pillow

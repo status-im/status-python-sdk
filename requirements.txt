@@ -1,5 +1,5 @@
+requests
+websocket-client
+websockets
 pandas
-pyyaml
-python-dotenv
-psycopg2-binary
-sqlalchemy
+pillow
