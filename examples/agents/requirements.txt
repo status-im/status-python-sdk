@@ -1,0 +1,5 @@
+tabulate
+langchain
+langchain-core
+langchain-groq
+python-dotenv

@@ -95,4 +95,4 @@ from bot import launch_docker_container
 launch_docker_container()
 ```
 
-**Note**: To run on Windows, please make sure you clone `status-im/status-go` and change the context to the folder. If you do not want to clone the repository, make sure you have set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and started it.
+**Note**: To run on Windows, please make sure you have set up [WSL](https://learn.microsoft.com/en-us/windows/wsl/install).
