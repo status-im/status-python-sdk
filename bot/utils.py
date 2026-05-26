@@ -28,5 +28,8 @@ def launch_docker_container():
         stderr=subprocess.PIPE,
         text=True,
     )
+    if "running" in result.stderr.lower():
+        return
+
     if result.returncode != 0:
         raise Exception(result.stderr.strip())
