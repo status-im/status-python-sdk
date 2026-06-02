@@ -838,7 +838,7 @@ Returns `dict[str, dict]` where the key is the contact's **public key**. This ma
 | `public_key` | `str` | Public key that uniquely identifies the contact. |
 | `url` | `str` | The URL that can be shared with other users. |
 | `chat_id` | `str` | Chat identifier used for direct messaging. |
-| `key_uid` | `str` | Internal compressed key identifier used by Status Backend. |
+| `compressed_key` | `str` | Internal compressed key identifier used by Status Backend. |
 | `emojis` | `str` | Emoji hash associated with the contact identity. |
 | `contact_state` | `str` | Current state of the contact relationship (`none`, `mutual`, `sent`, `received`, `dismissed`). |
 | `external_contact_state` | `str` | How the contact relationship appears from the other user's perspective. |
@@ -933,6 +933,40 @@ for community in account.communities:
 
     for channel in community["channels"]:
         print(f"\t#{channel['name']} posting: {channel['permissions']['posting']}")
+```
+
+#### `community_members`
+
+Get member information for all visible communities that the account is in. It can be useful to review community membership, identify suspicious profiles, or filter genuine community members. For each community member, an additional RPC call is made to fetch profile information such as `display_name`, `bio` and `url`. This can make the property slower for larger communities.
+
+Returns `pd.DataFrame`.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `community_id` | `str` | Unique identifier of the community. |
+| `community_name` | `str` | Name of the community that the member belongs to. |
+| `public_key` | `str` | Public key that uniquely identifies the community member. |
+| `chat_id` | `str` | Chat identifier used when sending messages. |
+| `display_name` | `str` | Current display name of the member. If unavailable, a fallback name is generated from the compressed key and Status URL. |
+| `url` | `str` | Shareable Status profile URL for the member. |
+| `bio` | `str` | Profile bio of the member, if available. |
+| `roles` | `list[int]` | Roles that the community member has. |
+| `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
+| `emoji_hash` | `str` | The member's compressed chat key as shown in Status App. |
+| `status_alias` | `str` | Initial display name of the member when the account was created. |
+
+```python
+from bot import Account
+
+account = Account()
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+members = account.community_members
+print(community_members.head().to_markdown(index=False))
 ```
 
 #### `chats`

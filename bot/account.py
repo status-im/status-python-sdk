@@ -387,7 +387,7 @@ class Account:
                 "public_key": contact["id"],
                 "url": self.__call_rpc("urls", "shareUserURLWithData", [contact["id"]]).get("result"),
                 "chat_id": contact["id"],
-                "key_uid": contact["compressedKey"],
+                "compressed_key": contact["compressedKey"],
                 "emojis": contact["emojiHash"],
                 "contact_state": self.__mappings["contact_request"][contact["contactRequestState"]],
                 "external_contact_state": self.__mappings["contact_request"][contact["contactRequestRemoteState"]],
@@ -544,6 +544,61 @@ class Account:
 
         balance.insert(0, "timestamp", datetime.datetime.now())
         return balance.copy()
+
+    @property
+    def community_members(self) -> pd.DataFrame:
+        """
+        Get enriched member data for all visible communities that the account belongs to.
+
+        NOTE: This performs an additional RPC call for each member to fetch profile
+        details, so it can be slower for large communities.
+
+        This can be useful for analyzing community membership, such as identifying
+        suspicious profiles or filtering for genuine community members.
+        """
+        data = self.__call_rpc("messaging", "communities")
+        raw: list[dict] = data.get("result", [])
+
+        if not raw:
+            return pd.DataFrame()
+
+        members = []
+        for community in raw:
+            for public_key, info in community.get("members", {}).items():
+                response: dict = self.__call_rpc("messaging", "getContactByID", [public_key])
+                result: dict = response.get("result") or {}
+
+                url = self.__call_rpc("urls", "shareUserURLWithData", [public_key]).get("result")
+
+                members.append({
+                    "community_id": community["id"],
+                    "community_name": community["name"],
+                    "public_key": public_key,
+                    "chat_id": public_key,
+                    "display_name": result.get("displayName"),
+                    "url": url,
+                    "bio": result.get("bio", ""),
+                    **info,
+                })
+
+        if not members:
+            return pd.DataFrame()
+
+        members = pd.DataFrame(members)
+        members.columns = [self.__camel_to_snake(column) for column in members.columns]
+
+        members = members.assign(
+            # Accounts with no display names are populated as they appear in the Status URL
+            display_name = members["display_name"].fillna(
+                members["compressed_key"].str[:3] + "..." + members["url"].str[-6:]
+            )
+        ).drop(["last_update_clock", "color_id"], axis=1)\
+        .rename(
+            # Initial display name of the account when it was created
+            columns={"alias": "status_alias"}
+        )
+
+        return members.copy()
 
     def __getitem__(self, key: str) -> pd.DataFrame:
         """
