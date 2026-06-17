@@ -1,5 +1,5 @@
 from typing import Optional, Union, Generator, Any
-import requests, datetime, re, logging, os, json, ast, shutil, eth_abi
+import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
@@ -29,7 +29,7 @@ class Account:
         "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
     }
 
-    def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False):
+    def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False, backup_folder: Optional[str] = None):
         """
         Work with your own Status App account
 
@@ -37,15 +37,18 @@ class Account:
             - `domain` - the domain name where Status Backend is running. If running locally it would be `localhost` and if it's running in a container it would be the image's name.
             - `port` - the port to connect to Status Backend. Verify the port in the Docker files.
             - `is_secure` - if `http` or `https` should be used
+            - `backup_folder` - where backup files will be created and stored
         """
         # Path of the account data in the Docker container for Status Backend
         self.__docker_data_folder = "./data-dir"
         # Path of the backups in the Docker container for Status Backend
         self.__docker_backup_folder = "./root/.config/Status/backups"
+        self.__backup_folder = backup_folder
         # As the docker-compose.yaml folder is at the moment
         # NOTE: This might change for initial release
-        self.__backup_local_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups")
-        os.makedirs(self.__backup_local_folder, exist_ok=True)
+        self.__backup_sdk_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups")
+        os.makedirs(self.__backup_sdk_folder, exist_ok=True)
+
         # Path of where images will be uploaded to Status Backend
         self.__docker_asset_folder = "./assets"
         # As the docker-compose.yaml folder is at the moment
@@ -798,7 +801,7 @@ class Account:
         Create a `.bkp` (Backup) for the account. If the backup was not successful, a custom exception will be raised.
 
         Output:
-            - the Docker backup path (linked to a volume). The file name is unique per account.
+            - the file path of the backup. The name is unique per account.
         """
         self.info
         response = requests.post(self.__urls["http"]["create_backup"])
@@ -807,6 +810,13 @@ class Account:
 
         if not file_path or (isinstance(file_path, str) and len(file_path) == 0):
             raise Exception(f"There was an error with creating a backup for {self.info['display_name']}")
+
+        file_name = os.path.basename(file_path)
+        sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
+        file_path = sdk_file_path
+        if self.__backup_folder:
+            file_path = os.path.join(self.__backup_folder, file_name)
+            shutil.move(sdk_file_path, file_path)
 
         return file_path
 
@@ -1096,13 +1106,26 @@ class Account:
         Try to load every file in the Docker volume
         when an account recover is done.
         """
-        for file_name in os.listdir(self.__backup_local_folder):
+        folder = self.__backup_folder if self.__backup_folder else self.__backup_sdk_folder
+        for file_name in os.listdir(folder):
+            if not file_name.endswith(".bkp"):
+                continue
+
+            file_path = os.path.join(folder, file_name)
+            sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
+            if sdk_file_path != file_path:
+                shutil.copy(file_path, sdk_file_path)
+
             params = {
                 "filePath": os.path.join(self.__docker_backup_folder, file_name).replace("\\", "/")
             }
-            self.logger.info(f"Trying to load {file_name}")
+            self.logger.info(f"Trying to load {file_path}")
             response = requests.post(self.__urls["http"]["load_backup"], json=params)
             error: str = response.json().get("error", "")
+
+            if sdk_file_path != file_path:
+                os.remove(sdk_file_path)
+
             if len(error) == 0:
                 self.__signal.get("messages.new")
                 self.logger.info(f"Successfully loaded file!")

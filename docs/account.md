@@ -62,6 +62,50 @@ Wallet features are optional and can be omitted if not required for your use cas
 
 ![Status App Wallet](./images/wallet.png)
 
+## `Account(domain="localhost", port=8080, is_secure=False, backup_folder=None)`
+
+Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `domain` | `str` | No | Domain where Status Backend is reachable. Defaults to `localhost` when running through [`launch_docker_container`](./utils.md#launch_docker_container) on the same machine. **Use the container name when the SDK runs inside the same Docker network as Status Backend.** |
+| `port` | `int` | No | Port exposed by Status Backend. Defaults to `8080`. Verify the value in `docker-compose.yaml` if you have customized the setup. |
+| `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
+| `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be stored and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups). |
+
+The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
+
+Default setup (localhost, port 8080, http):
+
+```python
+from bot import Account
+
+account = Account()
+```
+
+Use a custom backup folder:
+
+```python
+from bot import Account
+
+account = Account(backup_folder="C:/Users/me/status-backups")
+```
+
+Connect to a Status Backend running on a different host or port:
+
+```python
+from bot import Account
+
+account = Account(
+    domain="status-backend.internal",
+    port=9090,
+    is_secure=True
+)
+```
+
+**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone) will fail.
+
+**Note**: When `backup_folder` is set, [`backup`](./account.md#backup) moves the generated `.bkp` file out of the SDK's internal `backups/` folder into the provided path, and recovery via `mnemonic` will look in this same folder for `.bkp` files to auto-load. Make sure the folder exists and is writable.
 
 ## Methods
 
@@ -697,7 +741,7 @@ tx_hash = account.send_transaction(
 
 **Note**: This is a wallet method, so it requires both `infura_token` and `coingecko_api_key` to be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone). If either is missing, an exception will be raised when this method is called.
 
-**Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method — set `chain_id` to the chain where the funds currently exist.
+**Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method - set `chain_id` to the chain where the funds currently exist.
 
 **Note**: An **exception will be raised** when:
 - the `symbol` (or contract address) does not exist on the given `chain_id`
@@ -908,8 +952,8 @@ The property exists in `Account` because signals require an **active logged‑in
 
 The property exposes two primary methods:
 
-- `signal.get()` — fetch a single event. If the event is not found, you may end up in an infinite loop.
-- `signal.listen()` — stream events continuously. Example usage of this is found in [`listen_messages()`](./account.md#listen_messages)
+- `signal.get()` - fetch a single event. If the event is not found, you may end up in an infinite loop.
+- `signal.listen()` - stream events continuously. Example usage of this is found in [`listen_messages()`](./account.md#listen_messages)
 
 ### `logger`
 
@@ -1093,8 +1137,8 @@ print(community_members.head().to_markdown(index=False))
 #### `chats`
 
 Get all chats that the account can **send messages to**. This includes:
-- [`contacts`](./account.md#contacts) — direct messages with users
-- [`communities`](./account.md#communities) — community channels where the account has **posting permission**
+- [`contacts`](./account.md#contacts) - direct messages with users
+- [`communities`](./account.md#communities) - community channels where the account has **posting permission**
 - Group chats that the account is in
 
 Returns `list[dict]` where each `dict` represents a chat that can be used with [`send_message`](./account.md#send_messagechat_id-message) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone).
