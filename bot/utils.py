@@ -28,5 +28,6 @@ def launch_docker_container():
         stderr=subprocess.PIPE,
         text=True,
     )
+
     if result.returncode != 0:
         raise Exception(result.stderr.strip())
