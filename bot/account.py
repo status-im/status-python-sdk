@@ -1,5 +1,5 @@
 from typing import Optional, Union, Generator, Any
-import requests, datetime, re, logging, os, json, ast, shutil
+import requests, datetime, re, logging, os, json, ast, shutil, eth_abi
 import pandas as pd
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
@@ -25,6 +25,10 @@ class Account:
         "account": "accounts",
         "identity": "multiaccounts"
     }
+    __keccak256_selectors = {
+        "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
+    }
+
     def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False):
         """
         Work with your own Status App account
@@ -77,6 +81,7 @@ class Account:
                 "create_backup": f"{self.__http_base_url}PerformLocalBackup",
                 "load_backup": f"{self.__http_base_url}LoadLocalBackup",
                 "rpc": f"{self.__http_base_url}CallRPC",
+                "transaction": f"{self.__http_base_url}SendTransactionV2"
             },
             "socket": {
                 "signals": f"{self.__ws_base_url}signals"
@@ -994,6 +999,63 @@ class Account:
         }
         market_info = market_info.rename(columns=column_mapping)[list(column_mapping.values())]
         return market_info.copy()
+
+    def send_transaction(self, address: str, symbol: str, amount: float, chain_id: int = 1) -> Optional[str]:
+        """
+        Send crypto to specified `address`
+
+        Parameters:
+            - `address` - the wallet address of the receiver
+            - `symbol` - either a valid Status token symbol from `def get_tokens()` or its address
+            - `amount` - the amount that will be sent to the `address`
+            - `chain_id` - valid Chain from `self.chains`
+
+        Output:
+            - Transaction hash that to monitor the transactions progress
+        """
+        is_eth = symbol == "ETH"
+        is_address = symbol.startswith("0x")
+        symbol = symbol.upper()
+        tokens = self.get_tokens()[["chain_id", "address", "symbol", "decimals"]].drop_duplicates().reset_index(drop=True)
+        query = (tokens["address" if is_address else "symbol"] == symbol) & (tokens["chain_id"] == chain_id)
+        if query.sum() == 0:
+            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} does not exist...")
+
+        token_info = tokens.loc[query].to_dict("records")[0]
+
+        balance = self.balance
+        query = (balance["address"] == token_info["address"]) & (balance["chain_id"] == chain_id)
+        if query.sum() == 0:
+            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} was not found in your wallet ({self.info['wallet_address']})...")
+
+        wallet_amount = balance.loc[query].reset_index(drop=True)["amount"].iloc[0]
+        if amount > wallet_amount:
+            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} has {wallet_amount} but you are trying to send {amount}...")
+
+        raw_amount = int(amount * (10**token_info["decimals"]))
+
+        tx = {
+            "version": 1,
+            "from": self.info["wallet_address"],
+            "to": address if is_eth else token_info["address"],
+            "value": hex(raw_amount) if is_eth else "0x0",
+            "fromChainID": chain_id,
+            "toChainID": chain_id,
+        }
+        if not is_eth:
+            encoded_args = eth_abi.encode(["address", "uint256"], [address, raw_amount]).hex()
+            tx["data"] = "0x" + self.__keccak256_selectors["transfer"] + encoded_args
+
+        payload = {
+            "password": self.info["password"],
+            "txArgs": tx
+        }
+        response = requests.post(self.__urls["http"]["transaction"], json=payload)
+        transaction_hash: str = response.json().get("result")
+
+        url = f"http://etherscan.io/tx/{transaction_hash}"
+        self.logger.info(f"Transaction: {url}")
+        return transaction_hash
 
     def __start_messenger(self):
         """

@@ -583,6 +583,127 @@ Returns `pd.DataFrame`.
 | `pct_change_24hr` | `float` | Percentage price change over the last 24 hours. |
 
 
+#### `send_transaction(address, symbol, amount, chain_id=1)`
+
+Send crypto from the logged-in account's wallet to another wallet address on the same chain. This method supports both **ETH** and **ERC-20** tokens. The token can be identified either by its Status symbol (e.g. `ETH`, `SNT`, `USDT`) or by its contract address. Before broadcasting, the method validates that the token exists on the given chain and that the wallet holds enough balance for the requested `amount`.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `address` | `str` | Yes | The wallet address of the receiver. |
+| `symbol` | `str` | Yes | Either a valid Status token symbol from [`get_tokens`](./account.md#get_tokens) or the token's contract address (must start with `0x`). |
+| `amount` | `float` | Yes | The amount of the token to send. Must be less than or equal to the wallet's current balance for that token. |
+| `chain_id` | `int` | No | Chain ID where the transaction will be broadcast. Defaults to `1` (Ethereum mainnet). All available chain IDs can be obtained from the [`chains`](./account.md#chains) property. |
+
+Returns `str` representing the **transaction hash**. The hash can be appended to `https://etherscan.io/tx/` to monitor the transaction's progress. The transaction URL is also written to [`logger`](./account.md#logger) at `INFO` level. If the backend fails to broadcast and does not return a hash, `None` is returned instead.
+
+Send ETH:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token" : "token from https://www.infura.io/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+vitalik_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+
+tx_hash = account.send_transaction(
+    address=vitalik_address,
+    symbol="ETH",
+    amount=0.01
+)
+print(f"Transaction: https://etherscan.io/tx/{tx_hash}")
+```
+
+Send an ERC-20 token by symbol:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token" : "token from https://www.infura.io/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+vitalik_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+
+tx_hash = account.send_transaction(
+    address=vitalik_address,
+    symbol="SNT",
+    amount=10
+)
+```
+
+Send an ERC-20 token by contract address:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token" : "token from https://www.infura.io/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+vitalik_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+snt_address = "0x744d70fdbe2ba4cf95131626614a1763df805b9e"
+
+tx_hash = account.send_transaction(
+    address=vitalik_address,
+    symbol=snt_address,
+    amount=10
+)
+```
+
+Send on a different chain:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token" : "token from https://www.infura.io/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+vitalik_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+
+tx_hash = account.send_transaction(
+    address=vitalik_address,
+    symbol="ETH",
+    amount=0.01,
+    chain_id=10 # Optimism
+)
+```
+
+**Note**: This is a wallet method, so it requires both `infura_token` and `coingecko_api_key` to be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone). If either is missing, an exception will be raised when this method is called.
+
+**Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method — set `chain_id` to the chain where the funds currently exist.
+
+**Note**: An **exception will be raised** when:
+- the `symbol` (or contract address) does not exist on the given `chain_id`
+- the token is not present in the logged-in wallet's balance
+- the requested `amount` exceeds the current wallet balance
+
 ## Properties
 
 ### `available_accounts`

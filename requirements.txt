@@ -3,3 +3,4 @@ websocket-client
 websockets
 pandas
 pillow
+eth-abi
