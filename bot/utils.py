@@ -1,14 +1,21 @@
-import shutil, os, subprocess, sys
+import shutil, os, subprocess, sys, time
 from pathlib import Path
+from .logger import Logger
 
-def launch_docker_container():
+def launch_docker_container(wait_seconds: int = 5):
     """
     Launch the Status Backend Docker container using `docker-compose.yaml`
+
+    Parameters:
+        - `wait_seconds` - nunmber of seconds to wait before the code resumes. Sleep prevents calling `class Account` faster than launching the docker container. This only happens when the container already exists and it is must be turned on.
     """
-    is_windows = sys.platform == "win32"
+    logger = Logger()
+    platform = sys.platform
+    is_windows = platform == "win32"
     if not shutil.which("docker"):
         raise Exception("Please install Docker.")
 
+    logger.info(f"Running Docker on {platform}")
     DOCKER_COMPOSE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docker-compose.yaml")
     docker_path = DOCKER_COMPOSE_PATH
     if is_windows:
@@ -22,6 +29,7 @@ def launch_docker_container():
             raise Exception("Please install wsl - https://learn.microsoft.com/en-us/windows/wsl/install.")
         cmd.insert(0, "wsl")
 
+    logger.info(f"Running:\n{' '.join(cmd)}")
     result = subprocess.run(
         cmd,
         cwd=os.path.dirname(DOCKER_COMPOSE_PATH),
@@ -31,3 +39,6 @@ def launch_docker_container():
 
     if result.returncode != 0:
         raise Exception(result.stderr.strip())
+
+    logger.info(f"Sleeping for {wait_seconds}s")
+    time.sleep(wait_seconds)
