@@ -6,7 +6,7 @@ The account class allows you to easily work with a Status account.
 
 ## Display name
 
-The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
+The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-coingecko_api_keynone-etherscan_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
 
 Display names must follow strict validation rules enforced by the library and expected by the Status application. A valid display name must satisfy all of the following conditions:
 
@@ -50,7 +50,7 @@ Backup files (`.bkp`) can be both created in [Status App](https://our.status.im/
 
 [Status Backend](https://github.com/status-im/status-go) backup folder is exposed in a Docker volume so users can:
 
-- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone).
+- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-coingecko_api_keynone-etherscan_api_keynone).
 - **Create backup** - by using [`backup()`](./account.md#backup) or creating one in [Status App](https://our.status.im/status-desktop-v2-35-local-backups-new-home-page-performance-boosts-and-more/).
 
 **Note**: Status App will not automatically backup messages. This has to be manually overridden on the app (above screenshot). When using the Python SDK, the messages are automatically stored in the `.bkp` files.
@@ -73,7 +73,7 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
 | `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be stored and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups). |
 
-The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
+The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-coingecko_api_keynone-etherscan_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
 
 Default setup (localhost, port 8080, http):
 
@@ -103,13 +103,13 @@ account = Account(
 )
 ```
 
-**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone) will fail.
+**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-coingecko_api_keynone-etherscan_api_keynone) will fail.
 
 **Note**: When `backup_folder` is set, [`backup`](./account.md#backup) moves the generated `.bkp` file out of the SDK's internal `backups/` folder into the provided path, and recovery via `mnemonic` will look in this same folder for `.bkp` files to auto-load. Make sure the folder exists and is writable.
 
 ## Methods
 
-### `login(password, key_uid=None, display_name=None, mnemonic=None, infura_token=None,coingecko_api_key=None)`
+### `login(password, key_uid=None, display_name=None, mnemonic=None, infura_token=None, coingecko_api_key=None, etherscan_api_key=None)`
 
 Login to an existing Status account. If the account does not exist in the initialized data directory, a new account will be created and automatically logged in. 
 
@@ -127,6 +127,7 @@ An account can also be recovered if the [`mnemonic`](https://status.app/help/pro
 | `mnemonic` | `str` | No | The [mnemonic](https://status.app/help/profile/understand-your-status-keys-and-recovery-phrase#about-your-recovery-phrase) from [`info`](./account.md#info). Use this field with `password` and `display_name` to recover the account. If you have [`.bkp`](./account.md#backup) files, in the backup Docker volume they will be automatically picked up and loaded.<br><br>**Note**: You can pass a different `display_name` but that will be internal only. When an account is recovered setting [`display_name`](./account.md#display_name) can be buggy. Ideally when recovering the account, use the original `display_name` of the account. |
 | `infura_token` | `str` | No | [RPC token](https://www.infura.io/) to allow Status Backend to use a wallet. |
 | `coingecko_api_key` | `str` | No | [API token](https://www.coingecko.com/) to allow Status Backend to use a wallet. |
+| `etherscan_api_key` | `str` | No | [API key](https://etherscan.io/) used by [`get_transactions`](./account.md#get_transactionsrefreshfalse) to fetch wallet transactions from the Etherscan v2 API. Only required if you intend to call `get_transactions`. |
 
 Returns the current `Account` instance, allowing method chaining.
 
@@ -192,12 +193,13 @@ params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token" : "token from https://www.infura.io/",
-    "coingecko_api_key": "API key from https://www.coingecko.com/"
+    "coingecko_api_key": "API key from https://www.coingecko.com/",
+    "etherscan_api_key": "API key from https://etherscan.io/"
 }
 account.login(**params)
 ```
 
-**Note**: `infura_token` and `coingecko_api_key` can be used when creating, recovering and logging in to an account.
+**Note**: `infura_token`, `coingecko_api_key` and `etherscan_api_key` can be used when creating, recovering and logging in to an account. `etherscan_api_key` is only required if you plan to call [`get_transactions`](./account.md#get_transactionsrefreshfalse); the other wallet endpoints work without it.
 
 ### `logout()`
 
@@ -627,6 +629,56 @@ Returns `pd.DataFrame`.
 | `pct_change_24hr` | `float` | Percentage price change over the last 24 hours. |
 
 
+#### `get_transactions(refresh=False)`
+
+Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Etherscan v2 API](https://docs.etherscan.io/) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `refresh` | `bool` | No | When `True`, the full transaction history is refetched from Etherscan and the cache is replaced. When `False` (default), the cached `DataFrame` from the first call is returned. |
+
+Returns `pd.DataFrame`, sorted by `timestamp` in descending order (newest first).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `timestamp` | `datetime.datetime` | Block timestamp when the transaction was confirmed. |
+| `trx_type` | `str` | Type of transaction: `transaction` (regular EOA call), `internal` (contract-initiated transfer) or `ERC-20` (token transfer). |
+| `trx_hash` | `str` | Unique transaction hash. Can be appended to `https://etherscan.io/tx/` to inspect the transaction on Etherscan. |
+| `from_address` | `str` | Wallet address that initiated the transaction. |
+| `to_address` | `str` | Wallet address that received the transaction. |
+| `movement` | `str` | `sent` if the wallet has made the transaction, otherwise `received`. |
+| `token_address` | `str` | Token contract address. |
+| `token_symbol` | `str` | Token symbol (e.g. `ETH`, `SNT`, `USDT`). |
+| `amount` | `float` | Decimal-adjusted transaction amount. **Negative** when `movement` is `sent`, **positive** when `received`. |
+| `is_error` | `bool` | `True` if the transaction failed on-chain. |
+| `chain_id` | `int` | Chain ID where the transaction occurred. Matches values from [`chains`](./account.md#chains). |
+| `decimals` | `int` | Number of decimals used to scale `amount`. Defaults to `18` for native-token transfers. |
+| `trx_fee` | `float` | Gas fee paid in the chain's native token, computed as `gas_price * gas_used / 10**18`. Populated only for `sent` rows; `0` for `received` rows since the receiver does not pay gas. |
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "display_name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token" : "token from https://www.infura.io/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/",
+    "etherscan_api_key": "API key from https://etherscan.io/"
+}
+account.login(**params)
+
+transactions = account.get_transactions()
+print(transactions.head().to_markdown(index=False))
+```
+
+Force a fresh fetch (e.g. after sending a new transaction with [`send_transaction`](./account.md#send_transactionaddress-symbol-amount-chain_id1)):
+
+```python
+transactions = account.get_transactions(refresh=True)
+```
+
 #### `send_transaction(address, symbol, amount, chain_id=1)`
 
 Send crypto from the logged-in account's wallet to another wallet address on the same chain. This method supports both **ETH** and **ERC-20** tokens. The token can be identified either by its Status symbol (e.g. `ETH`, `SNT`, `USDT`) or by its contract address. Before broadcasting, the method validates that the token exists on the given chain and that the wallet holds enough balance for the requested `amount`.
@@ -739,7 +791,7 @@ tx_hash = account.send_transaction(
 )
 ```
 
-**Note**: This is a wallet method, so it requires both `infura_token` and `coingecko_api_key` to be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennonecoingecko_api_keynone). If either is missing, an exception will be raised when this method is called.
+**Note**: This is a wallet method, so it requires both `infura_token` and `coingecko_api_key` to be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-coingecko_api_keynone-etherscan_api_keynone). If either is missing, an exception will be raised when this method is called.
 
 **Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method - set `chain_id` to the chain where the funds currently exist.
 

@@ -39,6 +39,9 @@ class Account:
             - `is_secure` - if `http` or `https` should be used
             - `backup_folder` - where backup files will be created and stored
         """
+        # Wallet transactions
+        self.__etherscan_api_key = None
+        self.__transactions: Optional[pd.DataFrame] = None
         # Path of the account data in the Docker container for Status Backend
         self.__docker_data_folder = "./data-dir"
         # Path of the backups in the Docker container for Status Backend
@@ -96,7 +99,7 @@ class Account:
         # In case if there is a hanging logged in session
         self.logout()
 
-    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
+    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, coingecko_api_key: Optional[str] = None, etherscan_api_key: Optional[str] = None):
         """
         Login to the given account. If it does not exist,
         it will be created and automatically logged in.
@@ -108,6 +111,7 @@ class Account:
             - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `display_name` to recover an account
             - `infura_token` - https://www.infura.io/ RPC token to allow Status Backend to use a wallet
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
+            - `etherscan_api_key` - https://etherscan.io/ API key to fetch wallet Transactions
         """
         if not key_uid and not display_name:
             raise ValueError("Please provide either a Key Unique Identifier (key_uid) or a Display Name (display_name)...")
@@ -172,6 +176,9 @@ class Account:
 
         if infura_token and coingecko_api_key:
             self.__is_wallet_set = True
+
+        if etherscan_api_key:
+            self.__etherscan_api_key = etherscan_api_key
 
         url = self.__urls["http"][url_key]
         params.update({
@@ -1066,6 +1073,94 @@ class Account:
         url = f"http://etherscan.io/tx/{transaction_hash}"
         self.logger.info(f"Transaction: {url}")
         return transaction_hash
+
+    def get_transactions(self, refresh: bool = False) -> pd.DataFrame:
+        """
+        Get wallet transactions from all Status chains. To fetch wallet transactions, make sure you pass
+        a `etherscan_api_key` when calling `def login`.
+
+        Parameters:
+            - `refresh` - if `True` then the data will be refetched from scratch. If `False` then the data will be cached after the first call.
+
+        Output:
+            - Wallet's transactions
+        """
+        if not self.__etherscan_api_key:
+            raise Exception(f"Etherscan API key is required to fetch {self.info['wallet_address']} transactions")
+
+        if not refresh and isinstance(self.__transactions, pd.DataFrame):
+            return self.__transactions.copy()
+
+        url = "https://api.etherscan.io/v2/api"
+        transaction_mapping = {
+            "txlist": "transaction",
+            "txlistinternal": "internal",
+            "tokentx": "ERC-20"
+        }
+        data = []
+        for action, trx_type in transaction_mapping.items():
+            for chain_id in self.chains.keys():
+                params = {
+                    "chainid": chain_id,
+                    "address": self.info["wallet_address"],
+                    "apikey": self.__etherscan_api_key,
+                    "sort": "desc",
+                    "module": "account",
+                    "offset": 1_000,
+                    "page": 1,
+                    "action": action
+                }
+                while True:
+                    response = requests.get(url, params=params)
+                    results: list[dict] = response.json()["result"]
+                    if not results or isinstance(results, str):
+                        break
+                    data += [{**result, "chain_id": chain_id, "trx_type": trx_type} for result in results]
+                    params["page"] += 1
+
+        data = pd.DataFrame(data)
+        column_mapping = {
+            "timeStamp": "timestamp",
+            "trx_type": "trx_type",
+            "hash": "trx_hash",
+            "from": "from_address",
+            "to": "to_address",
+            "contractAddress": "token_address",
+            "tokenSymbol": "token_symbol",
+            "value": "amount",
+            "gasPrice": "gas_price",
+            "gasUsed": "gas_used",
+            "isError": "is_error",
+            "chain_id": "chain_id",
+            "tokenDecimal": "decimals"
+        }
+
+        fill_nan_mapping = {
+            "token_address": "0x0000000000000000000000000000000000000000",
+            "token_symbol": "ETH",
+            "is_error": 0,
+            "decimals": 18,
+            "gas_price": 0
+        }
+
+        final = data[list(column_mapping.keys())].rename(columns=column_mapping).copy()
+        for column, value in fill_nan_mapping.items():
+            final[column] = final[column].fillna(value)
+            query = final[column].astype(str).str.len() == 0
+            final.loc[query, column] = value
+
+
+        final.insert(5, "movement", (final["from_address"] == self.info["wallet_address"] ).apply(lambda match: "sent" if match else "received"))
+        final = final.assign(
+            timestamp = pd.to_datetime(final["timestamp"].astype("int64"), unit="s"),
+            amount = (final["amount"].astype("float64") / (10 ** final["decimals"].astype("int"))) * final["movement"].apply(lambda movement: -1 if movement == "sent" else 1),
+            trx_fee = final.apply(lambda row: (float(row["gas_price"]) * float(row["gas_used"])) / 10**18 if row["movement"] == "sent" else 0, axis=1),
+            is_error = final["is_error"].astype(int).astype(bool)
+        ).drop(["gas_price", "gas_used"], axis=1)
+
+        final = final.sort_values("timestamp", ascending=False).reset_index(drop=True)
+        self.__transactions = final.copy()
+        return self.__transactions.copy()
 
     def __start_messenger(self):
         """
