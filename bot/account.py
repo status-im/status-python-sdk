@@ -345,7 +345,7 @@ class Account:
         docker_file_path = self.__docker_asset_folder + "/" + asset_file_name
         for file_name in os.listdir(self.__assets_local_folder):
             current_file_path = os.path.join(self.__assets_local_folder, file_name)
-            if not os.path.isfile(current_file_path) or current_file_path == file_path:
+            if not os.path.isfile(current_file_path) or current_file_path.lower() == file_path.lower():
                 continue
             os.remove(current_file_path)
 
