@@ -1201,30 +1201,30 @@ class Account:
         when an account recover is done.
         """
         folder = self.__backup_folder if self.__backup_folder else self.__backup_sdk_folder
-        for file_name in os.listdir(folder):
-            if not file_name.endswith(".bkp"):
-                continue
 
-            file_path = os.path.join(folder, file_name)
-            sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
-            if sdk_file_path != file_path:
-                shutil.copy(file_path, sdk_file_path)
+        file_name = self.info["compressed_key"][-6:] + "_user_data.bkp"
+        file_path = os.path.join(folder, self.info["compressed_key"][-6:] + "_user_data.bkp")
+        if not os.path.exists(file_path):
+            raise Exception(f"Backup file was not found in {folder}...")
 
-            params = {
-                "filePath": os.path.join(self.__docker_backup_folder, file_name).replace("\\", "/")
-            }
-            self.logger.info(f"Trying to load {file_path}")
-            response = requests.post(self.__urls["http"]["load_backup"], json=params)
-            error: str = response.json().get("error", "")
+        sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
+        if sdk_file_path != file_path:
+            shutil.copy(file_path, sdk_file_path)
 
-            if sdk_file_path != file_path:
-                os.remove(sdk_file_path)
+        params = {
+            "filePath": os.path.join(self.__docker_backup_folder, file_name).replace("\\", "/")
+        }
+        self.logger.info(f"Trying to load {file_path}")
+        response = requests.post(self.__urls["http"]["load_backup"], json=params)
+        error: str = response.json().get("error", "")
 
-            if len(error) == 0:
-                self.__signal.get("messages.new")
-                self.logger.info(f"Successfully loaded file!")
-                break
+        if sdk_file_path != file_path:
+            os.remove(sdk_file_path)
 
+        if len(error) == 0:
+            self.__signal.get("messages.new")
+            self.logger.info(f"Successfully loaded file!")
+        else:
             self.logger.warning(error)
 
     def __call_rpc(self, prefix: str, method_name: str, params: Optional[Union[list, dict]] = None) -> dict:
