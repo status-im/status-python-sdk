@@ -3,6 +3,7 @@ import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
+from . import constants
 from .signal import Signal
 from .logger import Logger
 
@@ -40,7 +41,7 @@ class Account:
             - `backup_folder` - where backup files will be created and stored
         """
         # Wallet transactions
-        self.__etherscan_api_key = None
+        self.__alchemy_token = None
         self.__transactions: Optional[pd.DataFrame] = None
         # Path of the account data in the Docker container for Status Backend
         self.__docker_data_folder = "./data-dir"
@@ -68,7 +69,7 @@ class Account:
         # Information for Production chains (chain id -> chain name)
         self.__chains = {}
         # Monitor if wallet is used in `login` and raise an exception if
-        # a RPC endpoint for `wallet` is called without `infura_token`
+        # a RPC endpoint for `wallet` is called without `alchemy_token`
         self.__is_wallet_set = False
         # All available tokens in Status Backend
         self.__available_tokens = pd.DataFrame()
@@ -99,7 +100,7 @@ class Account:
         # In case if there is a hanging logged in session
         self.logout()
 
-    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, coingecko_api_key: Optional[str] = None, etherscan_api_key: Optional[str] = None):
+    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
         """
         Login to the given account. If it does not exist,
         it will be created and automatically logged in.
@@ -109,9 +110,8 @@ class Account:
             - `key_uid` - your key unique identifier. If not provided `display_name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
             - `display_name` - your Status display name. Use `display_name` and `password` parameter combination if you have a 1 to 1 mapping (each display name has a unique `key_uid`)
             - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `display_name` to recover an account
-            - `infura_token` - https://www.infura.io/ RPC token to allow Status Backend to use a wallet
+            - `alchemy_token` - https://alchemy.com/ RPC token to allow Status Backend to use a wallet
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
-            - `etherscan_api_key` - https://etherscan.io/ API key to fetch wallet Transactions
         """
         if not key_uid and not display_name:
             raise ValueError("Please provide either a Key Unique Identifier (key_uid) or a Display Name (display_name)...")
@@ -168,17 +168,15 @@ class Account:
         self.logout()
 
         # Wallet usage
-        if infura_token:
-            params["infuraToken"] = infura_token
+        if alchemy_token:
+            params["infuraToken"] = alchemy_token
+            self.__alchemy_token = alchemy_token
 
         if coingecko_api_key:
             params["coingeckoApiKey"] = coingecko_api_key
 
-        if infura_token and coingecko_api_key:
+        if alchemy_token and coingecko_api_key:
             self.__is_wallet_set = True
-
-        if etherscan_api_key:
-            self.__etherscan_api_key = etherscan_api_key
 
         url = self.__urls["http"][url_key]
         params.update({
@@ -1075,7 +1073,7 @@ class Account:
 
     def get_transactions(self, refresh: bool = False) -> pd.DataFrame:
         """
-        Get wallet transactions from all Status chains. To fetch wallet transactions, make sure you pass
+        Get wallet transactions from all Alchemy chains. To fetch wallet transactions, make sure you pass
         a `etherscan_api_key` when calling `def login`.
 
         Parameters:
@@ -1084,80 +1082,73 @@ class Account:
         Output:
             - Wallet's transactions
         """
-        if not self.__etherscan_api_key:
-            raise Exception(f"Etherscan API key is required to fetch {self.info['wallet_address']} transactions")
+        if not self.__is_wallet_set:
+            raise Exception(f"Cannot use this method without setting an `alchemy_token` and `coingecko_api_key` when calling `login`.")
 
         if not refresh and isinstance(self.__transactions, pd.DataFrame):
             return self.__transactions.copy()
 
-        url = "https://api.etherscan.io/v2/api"
-        transaction_mapping = {
-            "txlist": "transaction",
-            "txlistinternal": "internal",
-            "tokentx": "ERC-20"
-        }
-        data = []
-        for action, trx_type in transaction_mapping.items():
-            for chain_id in self.chains.keys():
-                params = {
-                    "chainid": chain_id,
-                    "address": self.info["wallet_address"],
-                    "apikey": self.__etherscan_api_key,
-                    "sort": "desc",
-                    "module": "account",
-                    "offset": 1_000,
-                    "page": 1,
-                    "action": action
-                }
-                while True:
-                    response = requests.get(url, params=params)
-                    results: list[dict] = response.json()["result"]
-                    if not results or isinstance(results, str):
-                        break
-                    data += [{**result, "chain_id": chain_id, "trx_type": trx_type} for result in results]
-                    params["page"] += 1
+        wallet_address = self.info["wallet_address"]
+        final = []
+        for domain, chain_id in constants.ALCHEMY_CHAIN_IDS.items():
+            for key in ["fromAddress", "toAddress"]:
+                transfers = []
+                page_key = ""
+                url = f"https://{domain}.g.alchemy.com/v2/{self.__alchemy_token}"
+                while isinstance(page_key, str):
+                    payload = {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "alchemy_getAssetTransfers",
+                        "params": [
+                            {
+                                key: wallet_address,
+                                "maxCount": hex(1_000),
+                                "pageKey": page_key if isinstance(page_key, str) else None,
+                                "category": ["external", "internal", "erc20"]
+                            }
+                        ]
+                    }
+                    response = requests.post(url, json=payload)
+                    result: dict = response.json().get("result", {})
+                    current_transfers = result.get("transfers", [])
+                    transfers += current_transfers
+                    page_key = result.get("pageKey")
 
-        data = pd.DataFrame(data)
-        column_mapping = {
-            "timeStamp": "timestamp",
-            "trx_type": "trx_type",
+                transfers = pd.DataFrame(transfers).assign(chain_id = chain_id)
+                final.append(transfers)
+
+        final: pd.DataFrame = pd.concat(final, ignore_index=True)
+        columns = {
+            "blockNum": "block_number",
             "hash": "trx_hash",
             "from": "from_address",
             "to": "to_address",
-            "contractAddress": "token_address",
-            "tokenSymbol": "token_symbol",
             "value": "amount",
-            "gasPrice": "gas_price",
-            "gasUsed": "gas_used",
-            "isError": "is_error",
-            "chain_id": "chain_id",
-            "tokenDecimal": "decimals"
+            "asset": "symbol",
+            "category": "trx_type",
         }
+        final = final[list(columns.keys())].rename(columns=columns)
 
-        fill_nan_mapping = {
-            "token_address": "0x0000000000000000000000000000000000000000",
-            "token_symbol": "ETH",
-            "is_error": 0,
-            "decimals": 18,
-            "gas_price": 0
-        }
+        block_mapping = {}
+        for block_number in final["block_number"].unique():
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "eth_getBlockByNumber",
+                "params": [block_number, False],
+            }
+            url = f"https://eth-mainnet.g.alchemy.com/v2/{self.__alchemy_token}"
+            response = requests.post(url, json=payload)
+            block_mapping[block_number] = int(response.json()["result"]["timestamp"], 16)
 
-        final = data[list(column_mapping.keys())].rename(columns=column_mapping).copy()
-        for column, value in fill_nan_mapping.items():
-            final[column] = final[column].fillna(value)
-            query = final[column].astype(str).str.len() == 0
-            final.loc[query, column] = value
-
-
-        final.insert(5, "movement", (final["from_address"] == self.info["wallet_address"] ).apply(lambda match: "sent" if match else "received"))
+        final.insert(0, "timestamp", pd.to_datetime(final["block_number"].map(block_mapping), unit="s", utc=True))
         final = final.assign(
-            timestamp = pd.to_datetime(final["timestamp"].astype("int64"), unit="s"),
-            amount = (final["amount"].astype("float64") / (10 ** final["decimals"].astype("int"))) * final["movement"].apply(lambda movement: -1 if movement == "sent" else 1),
-            trx_fee = final.apply(lambda row: (float(row["gas_price"]) * float(row["gas_used"])) / 10**18 if row["movement"] == "sent" else 0, axis=1),
-            is_error = final["is_error"].astype(int).astype(bool)
-        ).drop(["gas_price", "gas_used"], axis=1)
+            block_number = final["block_number"].apply(lambda value: int(value, 16)),
+            trx_type = final.apply(lambda row: "sent" if row["from_address"].lower() == wallet_address.lower() else "received", axis=1),
+            amount = final["amount"] * final.apply(lambda row: -1 if row["from_address"].lower() == wallet_address.lower() else 1, axis=1)
+        ).sort_values("block_number", ascending=False).reset_index(drop=True)
 
-        final = final.sort_values("timestamp", ascending=False).reset_index(drop=True)
         self.__transactions = final.copy()
         return self.__transactions.copy()
 
@@ -1247,7 +1238,7 @@ class Account:
             raise ValueError(f"Name {name} does not exist... Available options: {list(self.__prefix_mapping.keys())}")
 
         if name == "wallet" and not self.__is_wallet_set:
-            raise Exception(f"Cannot use this method without setting an `infura_token` and `coingecko_api_key` when calling `login`.")
+            raise Exception(f"Cannot use this method without setting an `alchemy_token` and `coingecko_api_key` when calling `login`.")
 
         data = {
             'jsonrpc': '2.0',

@@ -146,7 +146,7 @@ class AccountContactManagementTool(StatusBaseTool):
 class SearchMessagesTool(StatusBaseTool):
 
     name: str = "search_messages"
-    description: str = "Get chat messages for the given chad ID and specified start and end date."
+    description: str = "Get chat messages for the given chat ID and specified start and end date."
     args_schema: Type[BaseModel] = models.MessageInput
 
     def _run(self, chat_id: str, message: Optional[str], start_date: Optional[models.DateStr], end_date: Optional[models.DateStr]) -> str:
@@ -164,7 +164,7 @@ class SearchMessagesTool(StatusBaseTool):
 class SendMessagesTool(StatusBaseTool):
 
     name: str = "send_message"
-    description: str = "Send a message to the specified chad IT"
+    description: str = "Send a message to the specified chat IT"
     args_schema: Type[BaseModel] = models.MessageInput
 
     def _run(self, chat_id: str, message: Optional[str], start_date: Optional[models.DateStr], end_date: Optional[models.DateStr]) -> str:

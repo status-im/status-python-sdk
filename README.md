@@ -43,7 +43,7 @@ graph TB
     SDK --> Vol1
     SDK --> Vol2
     RPC --> |coingecko_api_key| COINGECKO
-    RPC --> |infura_token| EVM
+    RPC --> |alchemy_token| EVM
 ```
 
 ## Setup

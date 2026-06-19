@@ -13,13 +13,13 @@ from bot import Account, launch_docker_container
 
 class StatusToolKit:
 
-    def __init__(self, password: str, display_name: str, mnemonic: str, infura_token: str, coingecko_api_key: str):
+    def __init__(self, password: str, display_name: str, mnemonic: str, alchemy_token: str, coingecko_api_key: str):
         self.account = Account()
         self.account.login(
             password=password,
             display_name=display_name,
             mnemonic=mnemonic,
-            infura_token=infura_token,
+            alchemy_token=alchemy_token,
             coingecko_api_key=coingecko_api_key
         )
         self.display_name = self.account.display_name
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         os.environ["PASSWORD"],
         os.environ["DISPLAY_NAME"],
         os.environ["MNEMONIC"],
-        os.environ["INFURA_TOKEN"],
+        os.environ["ALCHEMY_TOKEN"],
         os.environ["COINGECKO_API_KEY"]
     )
     agent = create_agent(
