@@ -411,7 +411,6 @@ class Account:
                 "mutual": contact["mutual"],
                 "display_name": contact["displayName"],
                 "bio": contact["bio"],
-                "wallet_address": contact["address"],
                 "last_updated": datetime.datetime.fromtimestamp(contact["lastUpdated"] / self.__timestamp_divisor) if contact["lastUpdated"] > 0 else None
             }
             for contact in raw

@@ -1064,7 +1064,6 @@ Returns `dict[str, dict]` where the key is the contact's **public key**. This ma
 | `mutual` | `bool` | Whether both users have added each other. |
 | `display_name` | `str` | The current display name of the contact. |
 | `bio` | `str` | The contact's profile bio. |
-| `wallet_address` | `str` | Ethereum wallet address associated with the contact. |
 | `last_updated` | `datetime.datetime` | Timestamp when the contact information was last updated. |
 
 ```python
