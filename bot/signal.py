@@ -1,5 +1,6 @@
 from typing import Optional
 import datetime, websocket, json, copy, queue, threading
+from . import exceptions
 
 class Signal:
     """
@@ -89,7 +90,7 @@ class Signal:
         ws.run_forever()
 
         if self.__error_message:
-            raise Exception(self.__error_message)
+            raise exceptions.SignalError(self.__error_message)
 
         return copy.deepcopy(self.__data)
 
@@ -143,7 +144,7 @@ class Signal:
             except KeyboardInterrupt:
                 break
             if self.__error_message:
-                raise Exception(self.__error_message)
+                raise exceptions.SignalError(self.__error_message)
 
             yield data
 

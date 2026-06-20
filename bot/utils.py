@@ -1,6 +1,7 @@
 import shutil, os, subprocess, sys, time
 from pathlib import Path
 from .logger import Logger
+from . import exceptions
 
 def launch_docker_container(wait_seconds: int = 5):
     """
@@ -13,7 +14,7 @@ def launch_docker_container(wait_seconds: int = 5):
     platform = sys.platform
     is_windows = platform == "win32"
     if not shutil.which("docker"):
-        raise Exception("Please install Docker.")
+        raise exceptions.DockerError("Please install Docker.")
 
     logger.info(f"Running Docker on {platform}")
     DOCKER_COMPOSE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docker-compose.yaml")
@@ -26,7 +27,7 @@ def launch_docker_container(wait_seconds: int = 5):
     cmd = ["docker", "compose", "-f", docker_path, "up", "-d"]
     if is_windows:
         if not shutil.which("wsl"):
-            raise Exception("Please install wsl - https://learn.microsoft.com/en-us/windows/wsl/install.")
+            raise exceptions.DockerError("Please install wsl - https://learn.microsoft.com/en-us/windows/wsl/install.")
         cmd.insert(0, "wsl")
 
     logger.info(f"Running:\n{' '.join(cmd)}")
@@ -38,7 +39,7 @@ def launch_docker_container(wait_seconds: int = 5):
     )
 
     if result.returncode != 0:
-        raise Exception(result.stderr.strip())
+        raise exceptions.DockerError(result.stderr.strip())
 
     logger.info(f"Sleeping for {wait_seconds}s")
     time.sleep(wait_seconds)

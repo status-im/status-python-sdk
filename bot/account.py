@@ -1,6 +1,7 @@
 from typing import Optional, Union, Generator, Any
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
+from . import exceptions
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from . import constants
@@ -114,7 +115,7 @@ class Account:
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
         """
         if not key_uid and not display_name:
-            raise ValueError("Please provide either a Key Unique Identifier (key_uid) or a Display Name (display_name)...")
+            raise exceptions.InvalidContactError()
 
         available_accounts = self.available_accounts
         # Login combination: display_name + password
@@ -130,7 +131,7 @@ class Account:
             available_key_uids = [current["key_uid"] for current in available_accounts]
             if key_uid not in available_key_uids:
                 info = "\n".join([f"{current['key_uid']} - {current['display_name']}" for current in self.available_accounts])
-                raise ValueError(f"Given Key Unique Identifier is invalid...\nAvailable Key Unique Identifiers:\n{info}")
+                raise exceptions.InvalidContactError(f"Given Key Unique Identifier is invalid...\nAvailable Key Unique Identifiers:\n{info}")
 
         is_new_account = isinstance(key_uid, type(None))
         is_recovery = not isinstance(mnemonic, type(None)) and not key_uid
@@ -187,7 +188,7 @@ class Account:
         response = requests.post(url, json=params)
         signal_event = self.__signal.get("node.login")
         if signal_event["is_error"]:
-            raise Exception(f"There was an error with Status Backend...\n{signal_event['error_message']}")
+            raise exceptions.BackendError(f"There was an error with Status Backend...\n{signal_event['error_message']}")
 
         self.logger.info("Successfully logged in!")
         event: dict = signal_event["event"]["settings"]
@@ -259,7 +260,7 @@ class Account:
         Can also be used to verify if the user has logged in.
         """
         if not self.__info:
-            raise Exception("Make sure you are logged in to your Status account with login() first...")
+            raise exceptions.NotLoggedInError()
         return self.__info
 
     @property
@@ -295,7 +296,7 @@ class Account:
         # Limit based from Status App
         CHARACTERS = 240
         if len(bio) > CHARACTERS:
-            raise ValueError(f"Bio cannot be longer than {CHARACTERS} characters...")
+            raise exceptions.InvalidDisplayNameError(f"Bio cannot be longer than {CHARACTERS} characters...")
 
         self.__call_rpc("messaging", "setBio", [bio])
         # It seems that if a valid bio is given, it will be instantly updated
@@ -336,11 +337,11 @@ class Account:
             return
 
         if not os.path.exists(file_path):
-            raise Exception(f"File path {file_path} does not exist")
+            raise exceptions.ProfilePictureError(f"File path {file_path} does not exist")
 
         suffix = (".jpg", ".png", ".jpeg")
         if not file_path.endswith(suffix):
-            raise Exception(f"Image must be one of the following extensions: {suffix}")
+            raise exceptions.ProfilePictureError(f"Image must be one of the following extensions: {suffix}")
 
         file_name = os.path.basename(file_path)
 
@@ -619,7 +620,7 @@ class Account:
         ccy = key.upper()
 
         if ccy not in self.__get_fiat_ccy():
-            raise Exception(f"{ccy} is an invalid fiat (ISO 4217) currency code...")
+            raise exceptions.InvalidCurrencyError(f"{ccy} is an invalid fiat (ISO 4217) currency code...")
 
         balance = self.balance
         tokens = (balance["chain_id"].astype(str) + "-" + balance["address"]).to_list()
@@ -746,7 +747,7 @@ class Account:
                 break
 
         if not display_name:
-            raise ValueError(f"Cannot add contact {public_key}...\nPlease make sure you add display_name for contacts that you are sending friend requests to and have never interacted with before!")
+            raise exceptions.InvalidContactError(f"Cannot add contact {public_key}...\nPlease make sure you add display_name for contacts that you are sending friend requests to and have never interacted with before!")
 
         params = [{"id": public_key, "nickname": "", "displayName": display_name, "ensName": ""}]
         self.__call_rpc("messaging", "addContact", params)
@@ -813,7 +814,7 @@ class Account:
         file_path = result.get("filePath")
 
         if not file_path or (isinstance(file_path, str) and len(file_path) == 0):
-            raise Exception(f"There was an error with creating a backup for {self.info['display_name']}")
+            raise exceptions.BackupError(f"There was an error with creating a backup for {self.info['display_name']}")
 
         file_name = os.path.basename(file_path)
         sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
@@ -976,7 +977,7 @@ class Account:
         ccy = ccy.upper()
         available_ccy = self.__get_fiat_ccy()
         if ccy not in available_ccy:
-            raise Exception(f"Given currency {ccy} is invalid...\nAvailable ISO 4217 currencies: {available_ccy}")
+            raise exceptions.InvalidCurrencyError(f"Given currency {ccy} is invalid...\nAvailable ISO 4217 currencies: {available_ccy}")
 
         tokens = self.__get_valid_tokens(chain_ids, token_addresses)
         market_info = pd.DataFrame([
@@ -1033,18 +1034,18 @@ class Account:
         tokens = self.get_tokens()[["chain_id", "address", "symbol", "decimals"]].drop_duplicates().reset_index(drop=True)
         query = (tokens["address" if is_address else "symbol"] == symbol) & (tokens["chain_id"] == chain_id)
         if query.sum() == 0:
-            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} does not exist...")
+            raise exceptions.InvalidTokenError(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} does not exist...")
 
         token_info = tokens.loc[query].to_dict("records")[0]
 
         balance = self.balance
         query = (balance["address"] == token_info["address"]) & (balance["chain_id"] == chain_id)
         if query.sum() == 0:
-            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} was not found in your wallet ({self.info['wallet_address']})...")
+            raise exceptions.InvalidTokenError(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} was not found in your wallet ({self.info['wallet_address']})...")
 
         wallet_amount = balance.loc[query].reset_index(drop=True)["amount"].iloc[0]
         if amount > wallet_amount:
-            raise Exception(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} has {wallet_amount} but you are trying to send {amount}...")
+            raise exceptions.InvalidTokenError(f"Given {'address' if is_address else 'symbol'} {symbol} on chain ID {chain_id} has {wallet_amount} but you are trying to send {amount}...")
 
         raw_amount = int(amount * (10**token_info["decimals"]))
 
@@ -1083,7 +1084,7 @@ class Account:
             - Wallet's transactions
         """
         if not self.__is_wallet_set:
-            raise Exception(f"Cannot use this method without setting an `alchemy_token` and `coingecko_api_key` when calling `login`.")
+            raise exceptions.WalletNotConfiguredError()
 
         if not refresh and isinstance(self.__transactions, pd.DataFrame):
             return self.__transactions.copy()
@@ -1196,7 +1197,7 @@ class Account:
         file_name = self.info["compressed_key"][-6:] + "_user_data.bkp"
         file_path = os.path.join(folder, self.info["compressed_key"][-6:] + "_user_data.bkp")
         if not os.path.exists(file_path):
-            raise Exception(f"Backup file was not found in {folder}...")
+            raise exceptions.BackupError(f"Backup file was not found in {folder}...")
 
         sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
         if sdk_file_path != file_path:
@@ -1235,10 +1236,10 @@ class Account:
         self.info
         name = self.__prefix_mapping.get(prefix)
         if not name:
-            raise ValueError(f"Name {name} does not exist... Available options: {list(self.__prefix_mapping.keys())}")
+            raise exceptions.BackendError(f"Name {name} does not exist... Available options: {list(self.__prefix_mapping.keys())}")
 
         if name == "wallet" and not self.__is_wallet_set:
-            raise Exception(f"Cannot use this method without setting an `alchemy_token` and `coingecko_api_key` when calling `login`.")
+            raise exceptions.WalletNotConfiguredError()
 
         data = {
             'jsonrpc': '2.0',
@@ -1323,15 +1324,15 @@ class Account:
             - `True` if the name was successfully changed. A
         """
         if name != name.strip():
-            raise ValueError("Display name cannot start or end with a space.")
+            raise exceptions.InvalidDisplayNameError("Display name cannot start or end with a space.")
 
         if len(name) < 5:
-            raise ValueError("Display name must be at least 5 characters long.")
+            raise exceptions.InvalidDisplayNameError("Display name must be at least 5 characters long.")
 
         if len(name) > 24:
-            raise ValueError("Display name cannot be more than 24 characters long.")
+            raise exceptions.InvalidDisplayNameError("Display name cannot be more than 24 characters long.")
 
         if not re.fullmatch(r"[A-Za-z0-9 _-]+", name):
-            raise ValueError("Display name can contain only A-Z, 0-9, hyphens (-), underscores (_) and spaces.")
+            raise exceptions.InvalidDisplayNameError("Display name can contain only A-Z, 0-9, hyphens (-), underscores (_) and spaces.")
 
         return True
