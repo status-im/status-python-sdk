@@ -1026,19 +1026,38 @@ When a new profile picture is set, any previous image in the **assets** folder i
 
 ### `signal`
 
-The property exists in `Account` because signals require an **active logged‑in session**. Attempting to use signals before calling `login()` will raise an exception. Signals are low‑level events emitted by the Status Backend. Examples include:
+The property exists in `Account` because signals require an **active logged‑in session**. Attempting to use signals before calling `login()` will raise an exception. Signals are low‑level events emitted by the Status Backend.
 
-- `messages.new`
-- `message.delivered`
-- `node.ready`
-- `node.started`
-- `node.login`
-- `node.stopped`
-
-The property exposes two primary methods:
+The property exposes the following methods:
 
 - `signal.get()` - fetch a single event. If the event is not found, you may end up in an infinite loop.
 - `signal.listen()` - stream events continuously. Example usage of this is found in [`listen_messages()`](./account.md#listen_messages)
+- `signal.connect()` - open a persistent websocket connection that buffers **every** incoming signal in the background. Must be called before `expect()`.
+- `signal.disconnect()` - tear down the persistent connection opened by `connect()`.
+- `signal.expect()` - return a context manager that waits for one or more matching signals to arrive **after** you perform an action. This is the recommended way to make **async message calls**, since it removes the race conditions and infinite-loop risk of `get()`.
+
+```python
+from bot import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+account.signal.connect()
+with account.signal.expect("messages.new") as exp:
+    account.send_message(chat_id, "hello")
+
+# Available only after the `with` block exits
+print(exp.result)
+
+account.signal.disconnect()
+```
+
+**Note**: Some signals arrive faster than others - the Status Backend does not emit every signal type at the same speed (for example, a local `envelope.sent` confirmation typically arrives well before a `messages.new` event that depends on network propagation). Tune the `timeout` per signal type, and use `count` when an action is expected to produce multiple signals, rather than assuming they all land at once or in a fixed order.
+
 
 ### `logger`
 
