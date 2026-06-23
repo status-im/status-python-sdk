@@ -852,6 +852,75 @@ tx_hash = account.send_transaction(
 - the token is not present in the logged-in wallet's balance
 - the requested `amount` exceeds the current wallet balance
 
+#### `swap_tokens(from_token, to_token, amount, chain_id=1)`
+
+Swap one token for another on a single chain using the Status Backend routing engine. The swapped output is sent back to the **logged-in account's wallet**.
+
+Each token can be identified either by its Status symbol (e.g. `ETH`, `SNT`, `USDT`) or by its contract address. Before submitting, the method validates that `from_token` exists in the wallet's balance and that the wallet holds enough of it for the requested `amount`. **Only ETH to ERC-20 and ERC-20 to ETH swaps are currently supported** - the `from_token` / `to_token` must be `ETH`. **ERC-20** to **ERC-20** swaps (e.g. `SNT` to `USDT`) and **ERC-20** to **ETH** (`SNT` to `ETH`) are not supported yet.
+
+The swap happens on a **single chain** - both `from_token` and `to_token` must exist on the given `chain_id`. Cross-chain swaps are not supported. Swaps are submitted with a fixed slippage tolerance of `0.5%`.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `from_token` | `str` | Yes | The token to swap from. Either a valid Status token symbol from [`get_tokens`](./account.md#get_tokens) or the token's contract address (must start with `0x`). |
+| `to_token` | `str` | Yes | The token to swap to. Either a valid Status token symbol from [`get_tokens`](./account.md#get_tokens) or the token's contract address (must start with `0x`). |
+| `amount` | `float` | Yes | The amount of `from_token` to swap. Must be less than or equal to the wallet's current balance for that token. |
+| `chain_id` | `int` | No | Chain ID where the swap will happen. Defaults to `1` (Ethereum mainnet). Both `from_token` and `to_token` must exist on this chain. All available chain IDs can be obtained from the [`chains`](./account.md#chains) property. |
+
+Returns `str` representing the **transaction hash**. The hash can be appended to `https://etherscan.io/tx/` to monitor the swap's progress.  An **exception will be raised** when:
+- either `from_token` or `to_token` is not available on the given `chain_id` (`InvalidTokenError`)
+- both `from_token` and `to_token` are ERC-20 tokens, i.e. neither side is `ETH` (`InvalidTokenError`)
+- `from_token` is not present in the logged-in wallet's balance, or the requested `amount` exceeds the current balance (`InvalidTokenError`)
+- the Status Backend cannot build a swap route or the swap transaction fails (`BackendError`)
+
+Swap **ETH** for an **ERC-20** token:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
+    "alchemy_token": "token from https://www.alchemy.com/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+tx_hash = account.swap_tokens(
+    from_token="ETH",
+    to_token="SNT",
+    amount=0.0001
+)
+print(f"Swap: https://etherscan.io/tx/{tx_hash}")
+```
+
+Swap **ERC-20** for an **ETH** token:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
+    "alchemy_token": "token from https://www.alchemy.com/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+tx_hash = account.swap_tokens(
+    from_token="USDC",
+    to_token="ETH",
+    amount=100
+)
+print(f"Swap: https://etherscan.io/tx/{tx_hash}")
+```
+
 ## Properties
 
 ### `available_accounts`
