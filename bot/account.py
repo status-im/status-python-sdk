@@ -101,7 +101,7 @@ class Account:
         # In case if there is a hanging logged in session
         self.logout()
 
-    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
+    def login(self, password: str, key_uid: Optional[str] = None, name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
         """
         Login to the given account. If it does not exist,
         it will be created and automatically logged in.
@@ -109,20 +109,20 @@ class Account:
         Parameters:
             - `password` - your Status password
             - `key_uid` - your key unique identifier. If not provided `display_name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
-            - `display_name` - your Status display name. Use `display_name` and `password` parameter combination if you have a 1 to 1 mapping (each display name has a unique `key_uid`)
+            - `name` - your Status display name or ENS. Use `name` and `password` parameter combination if you have a 1 to 1 mapping (ENS has a unique `key_uid`)
             - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `display_name` to recover an account
             - `infura_token` - https://www.infura.io/ RPC token to allow Status Backend to use a wallet
             - `alchemy_token` - https://alchemy.com/ RPC token to allow Status Backend to use a wallet
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
         """
-        if not key_uid and not display_name:
+        if not key_uid and not name:
             raise exceptions.InvalidContactError()
 
         available_accounts = self.available_accounts
-        # Login combination: display_name + password
+        # Login combination: display_name (or ENS) + password
         if not key_uid:
             for account in available_accounts:
-                if account["display_name"] != display_name:
+                if account["name"] != name:
                     continue
 
                 key_uid = account["key_uid"]
@@ -131,7 +131,7 @@ class Account:
         else:
             available_key_uids = [current["key_uid"] for current in available_accounts]
             if key_uid not in available_key_uids:
-                info = "\n".join([f"{current['key_uid']} - {current['display_name']}" for current in self.available_accounts])
+                info = "\n".join([f"{current['key_uid']} - {current['name']}" for current in self.available_accounts])
                 raise exceptions.InvalidContactError(f"Given Key Unique Identifier is invalid...\nAvailable Key Unique Identifiers:\n{info}")
 
         is_new_account = isinstance(key_uid, type(None))
@@ -145,11 +145,11 @@ class Account:
         }
 
         if is_new_account or is_recovery:
-            self.__validate_display_name(display_name)
+            self.__validate_display_name(name)
             params = {
                 "rootDataDir": self.__docker_data_folder,
                 "kdfIterations": self.__kd_iterations,
-                "displayName": display_name,
+                "displayName": name,
                 "password": password,
                 "customizationColor": "primary",
                 "wakuV2LightClient": False,
@@ -159,7 +159,7 @@ class Account:
             self.logger.info(f"Logging in with Key UID - {key_uid}")
 
         if is_new_account:
-            self.logger.info(f"Creating account with display_name {display_name}")
+            self.logger.info(f"Creating account with display_name {name}")
             url_key = "create"
 
         if is_recovery:
@@ -202,6 +202,7 @@ class Account:
 
         self.logger.info("Successfully logged in!")
         event: dict = signal_event["event"]["settings"]
+        ens_info: list[dict] = signal_event["event"].get("ensUsernames", [])
         self.__info = {
             "public_key": event["public-key"],
             "url": None,
@@ -213,6 +214,10 @@ class Account:
             "bio": event.get("bio", ""),
             "password": password,
             "wallet_address": event["dapps-address"],
+            "ens": {
+                "preferred_name": event.get("preferred-name"),
+                "usernames": ens_info
+            },
             "logged_in_timestamp": datetime.datetime.now()
         }
         self.__info["url"] = self.__call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result")
@@ -255,7 +260,8 @@ class Account:
 
         current_available_accounts = [
             {
-                "display_name": account["name"],
+                "name": account["name"],
+                "is_ens": account["name"].endswith(".eth"),
                 "key_uid": account["key-uid"],
                 "created_at": datetime.datetime.fromtimestamp(account["timestamp"])
             }
@@ -1226,7 +1232,7 @@ class Account:
         params = {
             "filePath": os.path.join(self.__docker_backup_folder, file_name).replace("\\", "/")
         }
-        self.logger.info(f"Trying to load {file_path}")
+        self.logger.info(f"Loading backup file: {file_path}")
         response = requests.post(self.__urls["http"]["load_backup"], json=params)
         error: str = response.json().get("error", "")
 

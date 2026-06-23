@@ -143,23 +143,23 @@ An account can also be recovered if the [`mnemonic`](https://status.app/help/pro
 |-----|-----|-----|-------------|
 | `password` | `str` | Yes | Password used to encrypt the account |
 | `key_uid` | `str` | Yes* | Unique key identifier of the account. If provided, the account will be logged in directly using this identifier. If not provided, then you must use `display_name` and `password` to login. |
-| `display_name` | `str` | Yes* | Display name of the account. Used to resolve the `key_uid` if it is not provided, or to create a new account if one does not already exist. This field is required if an account needs to be recovered with `mnemonic`. |
+| `name` | `str` | Yes* | Display name or [ENS name](https://status.app/help/profile/transfer-your-ens-name-to-status) of the account. Used to resolve the `key_uid` if it is not provided, or to create a new account if one does not already exist. This field is required if an account needs to be recovered with `mnemonic`. |
 | `mnemonic` | `str` | No | The [mnemonic](https://status.app/help/profile/understand-your-status-keys-and-recovery-phrase#about-your-recovery-phrase) from [`info`](./account.md#info). Use this field with `password` and `display_name` to recover the account. If you have [`.bkp`](./account.md#backup) files, in the backup Docker volume they will be automatically picked up and loaded.<br><br>**Note**: You can pass a different `display_name` but that will be internal only. When an account is recovered setting [`display_name`](./account.md#display_name) can be buggy. Ideally when recovering the account, use the original `display_name` of the account. |
 | `infura_token` | `str` | No | [RPC token](https://www.infura.io/) used by Status Backend for the Ethereum RPC component of the wallet. |
 | `alchemy_token` | `str` | No | Used to fetch [wallet transactions](./account.md#get_transactionsrefreshfalse) to fetch wallet transaction history via the Alchemy REST API, so no separate key is needed for transactions. |
 | `coingecko_api_key` | `str` | No | [API key](https://www.coingecko.com/) used by Status Backend to fetch token prices. |
 
-Wallet functionality is split into three components, each backed by a token: Ethereum RPC (`infura_token`), transactions (`alchemy_token`) and prices (`coingecko_api_key`). All three must be provided for wallet RPC methods to work — if any is missing, wallet calls raise a `WalletNotConfiguredError`.
+Wallet functionality is split into three components, each backed by a token: Ethereum RPC (`infura_token`), transactions (`alchemy_token`) and prices (`coingecko_api_key`). All three must be provided for wallet RPC methods to work - if any is missing, wallet calls raise a `WalletNotConfiguredError`.
 
 Returns the current `Account` instance, allowing method chaining.
 
-#### Login with `display_name`
+#### Login with Display name
 ```python
 from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -170,6 +170,25 @@ The code above is equivalent to the following screen on Status App:
 ![Log in screen](./images/login/log-in.png)
 
 **Note**: This assumes that `display_name` and is unique for every `key_uid`. If there are duplicated `display_names` then the first found match will be used. You can log in with `key_uid` if you have `display_name` duplicates.
+
+#### Login with ENS
+
+```python
+from bot import Account
+
+account = Account()
+params = {
+    "name": "malte.stateofus.eth",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+```
+
+You can purchase a **universal username** on Status App:
+
+![ENS purchase](./images/ens.png)
+
+
 
 #### Login with `key_uid`
 
@@ -191,7 +210,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "mnemonic" : "phrase_1 phrase_2 phrase_3 phrase_4 phrase_5 phrase_6 phrase_7 phrase_8 phrase_9 phrase_10 phrase_11 phrase_12"
 }
@@ -212,7 +231,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -221,7 +240,7 @@ params = {
 account.login(**params)
 ```
 
-**Note**: `infura_token`, `alchemy_token` and `coingecko_api_key` can be used when creating, recovering and logging in to an account. All three are required to enable wallet functionality — if any is missing, those calls raise a `WalletNotConfiguredError`.
+**Note**: `infura_token`, `alchemy_token` and `coingecko_api_key` can be used when creating, recovering and logging in to an account. All three are required to enable wallet functionality - if any is missing, those calls raise a `WalletNotConfiguredError`.
 
 ### `logout()`
 
@@ -232,7 +251,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -258,7 +277,7 @@ from bot import Account
 
 account = Account(backup_folder=r"C:\\Users\\me\\status-backups")
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -283,7 +302,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -315,7 +334,7 @@ import datetime
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -346,7 +365,7 @@ from rich.pretty import Pretty
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -384,7 +403,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -427,7 +446,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -457,7 +476,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -491,7 +510,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -524,7 +543,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -551,7 +570,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -579,7 +598,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -611,7 +630,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -690,7 +709,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -729,7 +748,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -755,7 +774,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -780,7 +799,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -806,7 +825,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -846,7 +865,14 @@ This property is useful when you want to:
 
 **You will have to know the passwords for the given `key_uid`.**
 
-Returns `list[dict]`.
+Returns `list[dict]`, one entry per locally available account.
+
+| Key | Type | Description |
+|----|----|-------------|
+| `name` | `str` | The account's name. For accounts using an [ENS](https://status.app/help/profile/transfer-your-ens-name-to-status) name, this is the ENS name (e.g. `malte.stateofus.eth`). For accounts that do not have an ENS name, this will be their display name. |
+| `is_ens` | `bool` | `True` when `display_name` is an ENS name (ends with `.eth`), otherwise `False`. Useful for telling apart plain display names from universal usernames. |
+| `key_uid` | `str` | Internal Status key identifier for the account. Can be passed to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) as `key_uid`. |
+| `created_at` | `datetime.datetime` | Timestamp when the account was created locally. |
 
 ```python
 from bot import Account
@@ -874,6 +900,7 @@ Provides information about the currently logged-in account. If `login()` has not
 | `display_name` | `str` | Display name of the account. |
 | `password` | `str` | Password used to encrypt the account locally. |
 | `wallet_address` | `str` | Ethereum wallet address associated with the account. |
+| `ens` | `dict` | The account's [ENS](https://status.app/help/profile/transfer-your-ens-name-to-status) details. Contains `preferred_name` (`str` or `None`) - the ENS name the account has chosen to display - and `usernames` (`list[dict]`) - every ENS username registered to the account. Both are empty / `None` when no ENS name is set. |
 | `logged_in_timestamp` | `datetime.datetime` | Timestamp when the account successfully logged in. |
 
 ```python
@@ -881,7 +908,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -900,7 +927,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -916,7 +943,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -939,7 +966,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -955,7 +982,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -972,7 +999,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -994,7 +1021,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1012,7 +1039,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1123,7 +1150,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1191,7 +1218,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1228,7 +1255,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1257,7 +1284,7 @@ from bot import Account
 
 account = Account()
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP"
 }
 account.login(**params)
@@ -1288,7 +1315,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -1318,7 +1345,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
@@ -1336,7 +1363,7 @@ from bot import Account
 account = Account()
 
 params = {
-    "display_name": "status-app-bot",
+    "name": "status-app-bot",
     "password": "SNTPUMP",
     "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
