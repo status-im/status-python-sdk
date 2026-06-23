@@ -6,7 +6,7 @@ The account class allows you to easily work with a Status account.
 
 ## Display name
 
-The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
+The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
 
 Display names must follow strict validation rules enforced by the library and expected by the Status application. A valid display name must satisfy all of the following conditions:
 
@@ -50,7 +50,7 @@ Backup files (`.bkp`) can be both created in [Status App](https://our.status.im/
 
 [Status Backend](https://github.com/status-im/status-go) backup folder is exposed in a Docker volume so users can:
 
-- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone).
+- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone).
 - **Create backup** - by using [`backup()`](./account.md#backup) or creating one in [Status App](https://our.status.im/status-desktop-v2-35-local-backups-new-home-page-performance-boosts-and-more/).
 
 **Note**: Status App will not automatically backup messages. This has to be manually overridden on the app (above screenshot). When using the Python SDK, the messages are automatically stored in the `.bkp` files.
@@ -95,9 +95,7 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
 | `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be stored and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups).  |
 
-The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
-
-Default setup (localhost, port 8080, http):
+The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
 
 ```python
 from bot import Account
@@ -125,13 +123,13 @@ account = Account(
 )
 ```
 
-**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone) will fail.
+**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) will fail.
 
 **Note**: When `backup_folder` is set, [`backup`](./account.md#backup) moves the generated `.bkp` file out of the SDK's internal `backups/` folder into the provided path, and recovery via `mnemonic` will look in this same folder for `.bkp` files to auto-load. Make sure the folder exists and is writable.
 
 ## Methods
 
-### `login(password, key_uid=None, display_name=None, mnemonic=None, alchemy_token=None, coingecko_api_key=None)`
+### `login(password, key_uid=None, display_name=None, mnemonic=None, infura_token=None, alchemy_token=None, coingecko_api_key=None)`
 
 Login to an existing Status account. If the account does not exist in the initialized data directory, a new account will be created and automatically logged in. 
 
@@ -147,8 +145,11 @@ An account can also be recovered if the [`mnemonic`](https://status.app/help/pro
 | `key_uid` | `str` | Yes* | Unique key identifier of the account. If provided, the account will be logged in directly using this identifier. If not provided, then you must use `display_name` and `password` to login. |
 | `display_name` | `str` | Yes* | Display name of the account. Used to resolve the `key_uid` if it is not provided, or to create a new account if one does not already exist. This field is required if an account needs to be recovered with `mnemonic`. |
 | `mnemonic` | `str` | No | The [mnemonic](https://status.app/help/profile/understand-your-status-keys-and-recovery-phrase#about-your-recovery-phrase) from [`info`](./account.md#info). Use this field with `password` and `display_name` to recover the account. If you have [`.bkp`](./account.md#backup) files, in the backup Docker volume they will be automatically picked up and loaded.<br><br>**Note**: You can pass a different `display_name` but that will be internal only. When an account is recovered setting [`display_name`](./account.md#display_name) can be buggy. Ideally when recovering the account, use the original `display_name` of the account. |
-| `alchemy_token` | `str` | No | [API token](https://www.alchemy.com/) to allow Status Backend to use a wallet. Also used by [`get_transactions`](./account.md#get_transactionsrefreshfalse) to fetch wallet transaction history via the Alchemy REST API, so no separate key is needed for transactions. |
-| `coingecko_api_key` | `str` | No | [API token](https://www.coingecko.com/) to allow Status Backend to use a wallet. |
+| `infura_token` | `str` | No | [RPC token](https://www.infura.io/) used by Status Backend for the Ethereum RPC component of the wallet. |
+| `alchemy_token` | `str` | No | Used to fetch [wallet transactions](./account.md#get_transactionsrefreshfalse) to fetch wallet transaction history via the Alchemy REST API, so no separate key is needed for transactions. |
+| `coingecko_api_key` | `str` | No | [API key](https://www.coingecko.com/) used by Status Backend to fetch token prices. |
+
+Wallet functionality is split into three components, each backed by a token: Ethereum RPC (`infura_token`), transactions (`alchemy_token`) and prices (`coingecko_api_key`). All three must be provided for wallet RPC methods to work — if any is missing, wallet calls raise a `WalletNotConfiguredError`.
 
 Returns the current `Account` instance, allowing method chaining.
 
@@ -213,13 +214,14 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
 account.login(**params)
 ```
 
-**Note**: `alchemy_token` and `coingecko_api_key` can be used when creating, recovering and logging in to an account. `alchemy_token` covers both the wallet RPC and transaction history via [`get_transactions`](./account.md#get_transactionsrefreshfalse), so no additional key is needed.
+**Note**: `infura_token`, `alchemy_token` and `coingecko_api_key` can be used when creating, recovering and logging in to an account. All three are required to enable wallet functionality — if any is missing, those calls raise a `WalletNotConfiguredError`.
 
 ### `logout()`
 
@@ -491,6 +493,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -523,6 +526,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -549,6 +553,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -576,6 +581,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -607,6 +613,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -653,7 +660,7 @@ Returns `pd.DataFrame`.
 
 #### `get_transactions(refresh=False)`
 
-Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
+Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
@@ -685,6 +692,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -723,6 +731,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -748,6 +757,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -772,6 +782,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -797,6 +808,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -812,7 +824,7 @@ tx_hash = account.send_transaction(
 )
 ```
 
-**Note**: This is a wallet method, so it requires both `alchemy_token` and `coingecko_api_key` to be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-alchemy_tokennone-coingecko_api_keynone). If either is missing, an exception will be raised when this method is called.
+**Note**: This is a wallet method, so it requires `infura_token`, `alchemy_token` and `coingecko_api_key` to all be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone). If any is missing, a `WalletNotConfiguredError` is raised when this method is called.
 
 **Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method - set `chain_id` to the chain where the funds currently exist.
 
@@ -1259,6 +1271,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -1288,6 +1301,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }
@@ -1305,6 +1319,7 @@ account = Account()
 params = {
     "display_name": "status-app-bot",
     "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
     "alchemy_token": "token from https://www.alchemy.com/",
     "coingecko_api_key": "API key from https://www.coingecko.com/"
 }

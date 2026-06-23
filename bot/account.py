@@ -101,7 +101,7 @@ class Account:
         # In case if there is a hanging logged in session
         self.logout()
 
-    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
+    def login(self, password: str, key_uid: Optional[str] = None, display_name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
         """
         Login to the given account. If it does not exist,
         it will be created and automatically logged in.
@@ -111,6 +111,7 @@ class Account:
             - `key_uid` - your key unique identifier. If not provided `display_name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
             - `display_name` - your Status display name. Use `display_name` and `password` parameter combination if you have a 1 to 1 mapping (each display name has a unique `key_uid`)
             - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `display_name` to recover an account
+            - `infura_token` - https://www.infura.io/ RPC token to allow Status Backend to use a wallet
             - `alchemy_token` - https://alchemy.com/ RPC token to allow Status Backend to use a wallet
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
         """
@@ -168,15 +169,24 @@ class Account:
 
         self.logout()
 
-        # Wallet usage
+        # Wallet usage is broken down into 3 components:
+        # - transactions
+        # - prices
+        # - Ethereum RPC
+
+        # Necessary for user transactions
         if alchemy_token:
-            params["infuraToken"] = alchemy_token
             self.__alchemy_token = alchemy_token
 
+        # Necessary for prices
         if coingecko_api_key:
-            params["coingeckoApiKey"] = coingecko_api_key
+            params["coingeckoDemoAPIKey"] = coingecko_api_key
 
-        if alchemy_token and coingecko_api_key:
+        # Necessary for Ethereum RPC
+        if infura_token:
+            params["infuraToken"] = infura_token
+
+        if alchemy_token and coingecko_api_key and infura_token:
             self.__is_wallet_set = True
 
         url = self.__urls["http"][url_key]
@@ -624,22 +634,27 @@ class Account:
 
         balance = self.balance
         tokens = (balance["chain_id"].astype(str) + "-" + balance["address"]).to_list()
-
         result = self.__call_rpc("wallets", "fetchPrices", [tokens, [ccy]]).get("result", {})
-        if not result:
-            return pd.DataFrame()
-        rates = pd.DataFrame([
-            {
-                "chain_id": int(address.split("-")[0]),
-                "address": address.split("-")[1],
-                "rate": price,
-                "ccy": ccy,
-            }
-            for address, prices in result.items()
-            for ccy, price in prices.items()
-        ])
-        balance = balance.merge(rates, "left", ["chain_id", "address"])
-        balance["fiat_value"] = balance["amount"] * balance["rate"]
+        if result:
+            rates = pd.DataFrame([
+                {
+                    "chain_id": int(address.split("-")[0]),
+                    "address": address.split("-")[1],
+                    "rate": price,
+                    "ccy": ccy,
+                }
+                for address, prices in result.items()
+                for ccy, price in prices.items()
+            ])
+            balance = balance.merge(rates, "left", ["chain_id", "address"])
+            balance["fiat_value"] = balance["amount"] * balance["rate"]
+        else:
+            balance = balance.assign(
+                rate = None,
+                ccy = ccy,
+                fiat_value = None,
+            )
+
         return balance.copy()
 
     def send_message(self, chat_id: str, message: str):
@@ -1074,8 +1089,7 @@ class Account:
 
     def get_transactions(self, refresh: bool = False) -> pd.DataFrame:
         """
-        Get wallet transactions from all Alchemy chains. To fetch wallet transactions, make sure you pass
-        a `etherscan_api_key` when calling `def login`.
+        Get wallet transactions from all Alchemy chains.
 
         Parameters:
             - `refresh` - if `True` then the data will be refetched from scratch. If `False` then the data will be cached after the first call.
@@ -1083,7 +1097,7 @@ class Account:
         Output:
             - Wallet's transactions
         """
-        if not self.__is_wallet_set:
+        if not self.__alchemy_token:
             raise exceptions.WalletNotConfiguredError()
 
         if not refresh and isinstance(self.__transactions, pd.DataFrame):
@@ -1116,8 +1130,13 @@ class Account:
                     transfers += current_transfers
                     page_key = result.get("pageKey")
 
+                if len(transfers) == 0:
+                    continue
                 transfers = pd.DataFrame(transfers).assign(chain_id = chain_id)
                 final.append(transfers)
+
+        if len(final) == 0:
+            return pd.DataFrame()
 
         final: pd.DataFrame = pd.concat(final, ignore_index=True)
         columns = {
@@ -1128,6 +1147,7 @@ class Account:
             "value": "amount",
             "asset": "symbol",
             "category": "trx_type",
+            "chain_id": "chain_id"
         }
         final = final[list(columns.keys())].rename(columns=columns)
 
@@ -1214,7 +1234,6 @@ class Account:
             os.remove(sdk_file_path)
 
         if len(error) == 0:
-            self.__signal.get("messages.new")
             self.logger.info(f"Successfully loaded file!")
         else:
             self.logger.warning(error)

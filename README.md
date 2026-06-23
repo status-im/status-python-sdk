@@ -33,7 +33,8 @@ graph TB
 
     subgraph external[External Services]
         COINGECKO[CoinGecko]
-        EVM
+        ALCHEMY[Alchemy]
+        INFURA[Infura]
     end
 
     SDK --> SIGNAL
@@ -43,7 +44,8 @@ graph TB
     SDK --> Vol1
     SDK --> Vol2
     RPC --> |coingecko_api_key| COINGECKO
-    RPC --> |alchemy_token| EVM
+    RPC --> |infura_token| INFURA
+    HTTP --> |alchemy_token| ALCHEMY
 ```
 
 ## Setup
