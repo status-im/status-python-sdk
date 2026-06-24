@@ -1,8 +1,9 @@
 from langchain_groq import ChatGroq
 from langchain.agents import create_agent
 from dotenv import load_dotenv
-import os
-import sys
+from typing import Optional
+import os, sys
+import pandas as pd
 
 # Temp solution until repo it turned into a PyPI library
 # Add the repo root to sys.path so `bot` is importable when running this
@@ -13,14 +14,15 @@ from bot import Account, launch_docker_container
 
 class StatusToolKit:
 
-    def __init__(self, password: str, display_name: str, mnemonic: str, alchemy_token: str, coingecko_api_key: str):
-        self.account = Account()
+    def __init__(self, password: str, display_name: str, mnemonic: str, alchemy_token: str, coingecko_api_key: str, infura_token: str, backup_folder: Optional[str] = None):
+        self.account = Account(backup_folder=backup_folder)
         self.account.login(
             password=password,
-            display_name=display_name,
+            name=display_name,
             mnemonic=mnemonic,
             alchemy_token=alchemy_token,
-            coingecko_api_key=coingecko_api_key
+            coingecko_api_key=coingecko_api_key,
+            infura_token=infura_token
         )
         self.display_name = self.account.display_name
         self.tools = [
@@ -31,13 +33,33 @@ class StatusToolKit:
             tools.SearchTokenTool(account=self.account),
             tools.SearchExternalBalanceTool(account=self.account),
             tools.SearchMessagesTool(account=self.account),
-            tools.SendMessagesTool(account=self.account)
+            tools.SearchTransactionsTool(account=self.account),
+            tools.SendMessagesTool(account=self.account),
+            tools.SendTransactionTool(account=self.account),
+            tools.SwapTokensTool(account=self.account)
         ]
 
 
     def get_tools(self) -> list:
         return self.tools
 
+    def normalize_amount(self, amount: str, token_key: str) -> float:
+        """
+        Convert the WEI amount from Payment requests to a regular amount.
+
+        Parameters:
+            - `amount` - the amount in WEI
+            - `token_key` - the Chain ID and Token Address
+
+        Output:
+            - The regular amount
+        """
+        chain_id, address = token_key.split("-")
+        tokens = self.account.get_tokens()
+        query = (tokens["address"].str.lower() == address.lower()) & (tokens["chain_id"] == int(chain_id))
+        decimals = tokens.loc[query, "decimals"].iloc[0]
+        raw_amount = int(amount) / (10**int(decimals))
+        return float(raw_amount)
 
 if __name__ == "__main__":
 
@@ -58,10 +80,11 @@ if __name__ == "__main__":
 
     status_toolkit = StatusToolKit(
         os.environ["PASSWORD"],
-        os.environ["DISPLAY_NAME"],
+        os.environ["NAME"],
         os.environ["MNEMONIC"],
         os.environ["ALCHEMY_TOKEN"],
-        os.environ["COINGECKO_API_KEY"]
+        os.environ["COINGECKO_API_KEY"],
+        os.environ["INFURA_TOKEN"]
     )
     agent = create_agent(
         model=llm,
@@ -74,24 +97,45 @@ if __name__ == "__main__":
     )
 
     for message in status_toolkit.account.listen_messages():
-        latest_message = None
+        content = None
         for chat in message["event"]["chats"]:
 
-            from_public_key = chat.get("lastMessage", {}).get("from")
+            latest_message: dict = chat.get("lastMessage", {})
+            if not latest_message:
+                continue
+
+            from_public_key = latest_message.get("from")
             if from_public_key != PUBLIC_KEY:
                 continue
 
-            latest_message = chat["lastMessage"]["text"]
+            content = chat["lastMessage"]["text"]
+            payment_requests: list[dict] = latest_message.get("paymentRequests", [])
+            if payment_requests:
+                payment_request = payment_requests[0]
+                amount = status_toolkit.normalize_amount(payment_request["amount"], payment_request["tokenKey"])
+                chain_id, token_address = payment_request["tokenKey"].split("-")
+                payment_content = {
+                    "Receiver Wallet": payment_request['receiver'],
+                    "Token Symbol": payment_request['symbol'],
+                    "Token Address": token_address,
+                    "Amount": amount,
+                    "Chain ID": chain_id
+                }
+                content += f"\n---\n# Payment request\n" + "\n".join([
+                    f"{name}: {value}"
+                    for name, value in payment_content.items()
+                ])
+
             break
 
-        if not latest_message:
+        if not content:
             continue
 
         result = agent.invoke({
             "messages": [
                 {
                     "role": "user",
-                    "content": latest_message
+                    "content": content
                 }
             ]
         })

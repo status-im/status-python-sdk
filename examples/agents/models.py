@@ -18,9 +18,13 @@ class TokenSearchInput(BaseModel):
     token_symbols: Optional[list[str]] = Field(description="Token Symbol for the given Chain ID", default=None)
 
 class BalanceSearchInput(BaseModel):
-    chain_id: int = Field(description="Chain ID where the token exists.", default=1)
-    token_addresses: list[str] = Field(description="Token Addresses for the given Chain ID")
-    wallet_address: str = Field(description="The wallet address that will be looked up")
+    chain_id: int = Field(description="Chain ID where the tokens exist.", default=1)
+    token_addresses: list[str] = Field(description=(
+        "Required. Non-empty list of token contract addresses to look up on the given chain. "
+        "This cannot be null or omitted. Use `get_token_info` first to resolve token "
+        "symbols (e.g. ETH, SNT) into addresses for the chain."
+    ))
+    wallet_address: str = Field(description="The external wallet address (or ENS name) whose balance will be looked up.")
     ccy: str = Field(description="ISO 4217 alpha code to represent the fiat currency", default="USD")
 
 class AccountContactInput(BaseModel):
@@ -48,6 +52,27 @@ class MessageInput(BaseModel):
     start_date: Optional[DateStr] = Field(description="Required to fetch chat messages from the specified date. Date should be in YYYY-MM-DD format.", default=None)
     end_date: Optional[DateStr] = Field(description="Required to fetch chat messages to the specified date. Date should be in YYYY-MM-DD format.", default=None)
 
+class TransactionSearchInput(BaseModel):
+    chain_ids: Optional[list[int]] = Field(description="Chain IDs where the token exists.", default=None)
+    token_symbols: Optional[list[str]] = Field(description="Token Symbol for the given Chain ID", default=None)
+    refresh: bool = Field(description="If `True` then the data will be refetched from scratch. If `False` then the data will be cached after the first call.")
+    start_date: Optional[DateStr] = Field(description="Required to fetch chat messages from the specified date. Date should be in YYYY-MM-DD format.", default=None)
+    end_date: Optional[DateStr] = Field(description="Required to fetch chat messages to the specified date. Date should be in YYYY-MM-DD format.", default=None)
+
+class SendTransactionInput(BaseModel):
+    address: str = Field(description="The wallet address of the receiver")
+    symbol: str = Field(description="Either a valid Status token symbol (e.g. `ETH`, `SNT`) or its token address")
+    amount: float = Field(description="The amount of the token that will be sent to the receiver")
+    chain_id: int = Field(description="Chain ID where the token exists.", default=1)
+
+class SwapTokensInput(BaseModel):
+    from_token: str = Field(description="The token to swap from. Either a valid Status token symbol (e.g. `ETH`, `SNT`) or its token address.")
+    to_token: str = Field(description="The token to swap to. Either a valid Status token symbol (e.g. `ETH`, `SNT`) or its token address.")
+    amount: float = Field(description="The amount of `from_token` to swap.")
+    chain_id: int = Field(description=(
+        "Chain ID where both tokens exist. The swap happens on a single chain, so `from_token` and `to_token` "
+        "must be on the same chain."
+    ), default=1)
 
 class NoArgs(BaseModel):
     pass
