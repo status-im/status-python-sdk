@@ -1358,7 +1358,8 @@ class Account:
         file_name = self.info["compressed_key"][-6:] + "_user_data.bkp"
         file_path = os.path.join(folder, self.info["compressed_key"][-6:] + "_user_data.bkp")
         if not os.path.exists(file_path):
-            raise exceptions.BackupError(f"Backup file was not found in {folder}...")
+            self.logger.warning(f"Backup file was not found in {folder}")
+            return
 
         sdk_file_path = os.path.join(self.__backup_sdk_folder, file_name)
         if sdk_file_path != file_path:
