@@ -1,7 +1,7 @@
 services:
     backend:
         build:
-            context: https://github.com/status-im/status-go.git#develop
+            context: https://github.com/status-im/status-go.git#${STATUS_GO_REF:-develop}
         platform: linux/amd64
         container_name: status-backend
         ports:
