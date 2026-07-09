@@ -2,10 +2,10 @@ services:
     backend:
         build:
             context: https://github.com/status-im/status-go.git#develop
-        platform: linux/amd64
         container_name: status-backend
         ports:
             - 8080:8080
+            - 8081:8081
             - 8545:8545
             - 30303:30303
         entrypoint: 'status-backend'
@@ -16,7 +16,10 @@ services:
         networks:
             - status-bridge
         healthcheck:
-            test: ["CMD", "curl http://0.0.0.0:8080/health"]
+            test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 30
 
 networks:
     status-bridge:

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  media-port:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Start status-backend
+        run: docker compose up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend did not become healthy in time"
+          docker compose logs
+          exit 1
+
+      - name: Run media server port test
+        run: pytest tests/test_media_server_port.py -v
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down

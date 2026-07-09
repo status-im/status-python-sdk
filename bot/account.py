@@ -33,7 +33,7 @@ class Account:
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
 
-    def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False, backup_folder: Optional[str] = None):
+    def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False, backup_folder: Optional[str] = None, media_port: int = 8081):
         """
         Work with your own Status App account
 
@@ -42,7 +42,10 @@ class Account:
             - `port` - the port to connect to Status Backend. Verify the port in the Docker files.
             - `is_secure` - if `http` or `https` should be used
             - `backup_folder` - where backup files will be created and stored
+            - `media_port` - fixed media server port (advertized in localUrl as domain:media_port)
         """
+        self.__domain = domain
+        self.__media_port = media_port
         # Wallet transactions
         self.__alchemy_token = None
         self.__transactions: Optional[pd.DataFrame] = None
@@ -102,6 +105,14 @@ class Account:
         self.available_accounts
         # In case if there is a hanging logged in session
         self.logout()
+
+    def __initialize_application_payload(self) -> dict:
+        return {
+            "dataDir": self.__docker_data_folder,
+            "mediaServerAddress": f"0.0.0.0:{self.__media_port}",
+            "mediaServerAdvertizeHost": self.__domain,
+            "mediaServerAdvertizePort": self.__media_port,
+        }
 
     def login(self, password: str, key_uid: Optional[str] = None, name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
         """
@@ -252,9 +263,10 @@ class Account:
         """
         All locally available accounts
         """
-        response = requests.post(self.__urls["http"]["initialize"], json={
-            "dataDir": self.__docker_data_folder
-        })
+        response = requests.post(
+            self.__urls["http"]["initialize"],
+            json=self.__initialize_application_payload(),
+        )
         data: dict = response.json()
         accounts: list[dict] = data.get("accounts", [])
         if not isinstance(accounts, list):
@@ -1323,7 +1335,8 @@ class Account:
             return
         self.logger.info("Starting messaging")
         self.__call_rpc("messaging", "startMessenger")
-        self.__signal.get("wakuv2.peerstats")
+        with self.__signal.expect("waku.connection.status.change", timeout=60):
+            pass
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
 
