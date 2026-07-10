@@ -1324,6 +1324,7 @@ class Account:
         self.logger.info("Starting messaging")
         self.__call_rpc("messaging", "startMessenger")
         self.__signal.get("wakuv2.peerstats")
+        self.__signal.get("waku.connection.status.change")
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
 
