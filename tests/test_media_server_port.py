@@ -1,13 +1,20 @@
-"""Media server port stays fixed after logout -> InitializeApplication -> login."""
+"""Media server port stays fixed after logout -> InitializeApplication -> login.
+
+Asserts the port embedded in getIdentityImages localUrl (profile picture URL),
+which is the same surface clients use — not mediaserver.started / health alone.
+"""
 
 import json
 import threading
 import time
+from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 import requests
 import urllib3
 import websocket
+from PIL import Image
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -16,6 +23,9 @@ WS_URL = "ws://127.0.0.1:8080/signals"
 DATA_DIR = "./data-dir"
 MEDIA_PORT = 8081
 PASSWORD = "StatusSdkPortTest1"
+# docker-compose mounts ./assets -> /assets
+PROFILE_IMAGE_HOST = Path(__file__).resolve().parents[1] / "assets" / "profile.png"
+PROFILE_IMAGE_DOCKER = "/assets/profile.png"
 
 
 class SignalBuffer:
@@ -62,15 +72,6 @@ class SignalBuffer:
                 self._cond.wait(timeout=0.5)
         raise TimeoutError(f"signal {signal_type!r} not received within {timeout}s")
 
-    def latest_port(self, signal_type: str, since: int) -> int | None:
-        with self._cond:
-            signals = self.by_type.get(signal_type, [])[since:]
-        for msg in reversed(signals):
-            port = (msg.get("event") or {}).get("port")
-            if port is not None:
-                return int(port)
-        return None
-
     def close(self):
         self._stop = True
 
@@ -90,6 +91,22 @@ def post_json(path: str, payload: dict | None = None, retries: int = 5) -> dict:
             last_exc = exc
             time.sleep(2 * (attempt + 1))
     raise RuntimeError(f"POST {path} failed after {retries} retries: {last_exc}")
+
+
+def call_rpc(method: str, params: list, timeout: float = 30) -> object:
+    deadline = time.monotonic() + timeout
+    last_error = None
+    while time.monotonic() < deadline:
+        data = post_json(
+            "CallRPC",
+            {"jsonrpc": "2.0", "method": method, "params": params, "id": 1},
+        )
+        if data.get("error"):
+            last_error = data["error"]
+            time.sleep(0.5)
+            continue
+        return data.get("result")
+    raise RuntimeError(f"RPC {method} failed: {last_error}")
 
 
 def wait_backend_healthy(timeout: float = 180) -> None:
@@ -129,23 +146,6 @@ def logout(signals: SignalBuffer | None = None) -> None:
             signals.wait_for("node.stopped", since=since, timeout=30)
         except TimeoutError:
             pass
-
-
-def media_server_health_ok(port: int) -> bool:
-    try:
-        r = requests.get(f"https://127.0.0.1:{port}/health", timeout=10, verify=False)
-        return r.status_code == 200
-    except requests.RequestException:
-        return False
-
-
-def observed_port(signals: SignalBuffer, since: int) -> int | None:
-    signal_port = signals.latest_port("mediaserver.started", since)
-    if signal_port is not None:
-        return signal_port
-    if media_server_health_ok(MEDIA_PORT):
-        return MEDIA_PORT
-    return None
 
 
 def ensure_account(signals: SignalBuffer, init_data: dict) -> str:
@@ -195,6 +195,51 @@ def login(key_uid: str, signals: SignalBuffer) -> None:
         raise RuntimeError(f"login error: {err}")
 
 
+def ensure_identity_image(key_uid: str) -> None:
+    images = call_rpc("multiaccounts_getIdentityImages", [key_uid])
+    if images:
+        return
+    assert PROFILE_IMAGE_HOST.is_file(), f"missing fixture image {PROFILE_IMAGE_HOST}"
+    width, height = Image.open(PROFILE_IMAGE_HOST).size
+    stored = call_rpc(
+        "multiaccounts_storeIdentityImage",
+        [key_uid, PROFILE_IMAGE_DOCKER, 0, 0, width, height],
+    )
+    assert stored, "storeIdentityImage returned empty result"
+
+
+def identity_image_local_url(key_uid: str) -> str:
+    images = call_rpc("multiaccounts_getIdentityImages", [key_uid])
+    assert images, f"no identity images for {key_uid}"
+    local_url = images[0].get("localUrl") or ""
+    assert local_url, f"identity image missing localUrl: {images[0]}"
+    return local_url
+
+
+def port_from_local_url(local_url: str) -> int:
+    host = urlparse(local_url).netloc  # localhost:8081
+    assert ":" in host, f"localUrl has no host:port: {local_url}"
+    return int(host.rsplit(":", 1)[-1])
+
+
+def download_identity_image(local_url: str) -> bytes:
+    url = local_url.replace("https://localhost:", "https://127.0.0.1:")
+    resp = requests.get(url, timeout=15, verify=False)
+    resp.raise_for_status()
+    assert resp.content, f"empty body from {local_url}"
+    assert "image" in (resp.headers.get("Content-Type") or ""), resp.headers
+    return resp.content
+
+
+def observe_identity_image_port(key_uid: str) -> tuple[int, str]:
+    """Return (port, localUrl) from getIdentityImages — the client-facing URL."""
+    ensure_identity_image(key_uid)
+    local_url = identity_image_local_url(key_uid)
+    port = port_from_local_url(local_url)
+    download_identity_image(local_url)
+    return port, local_url
+
+
 @pytest.fixture
 def signals():
     buf = SignalBuffer(WS_URL)
@@ -206,16 +251,18 @@ def signals():
 def test_media_port_persists_across_logout_reinit(signals):
     wait_backend_healthy()
     logout(signals)
-    since = signals.count("mediaserver.started")
     init_data = initialize()
     key_uid = ensure_account(signals, init_data)
+
     login(key_uid, signals)
-    port1 = observed_port(signals, since)
-    assert port1 == MEDIA_PORT, f"first login: expected {MEDIA_PORT}, got {port1}"
+    port1, url1 = observe_identity_image_port(key_uid)
+    assert port1 == MEDIA_PORT, f"first login localUrl={url1!r}: expected port {MEDIA_PORT}, got {port1}"
 
     logout(signals)
-    since = signals.count("mediaserver.started")
     initialize()
     login(key_uid, signals)
-    port2 = observed_port(signals, since)
-    assert port2 == MEDIA_PORT, f"after re-init: expected {MEDIA_PORT}, got {port2}"
+    port2, url2 = observe_identity_image_port(key_uid)
+    assert port2 == MEDIA_PORT, (
+        f"after logout+re-init localUrl={url2!r}: expected port {MEDIA_PORT}, got {port2}"
+        f" (first was {port1}, url={url1!r})"
+    )
