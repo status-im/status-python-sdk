@@ -3,8 +3,10 @@ import uuid as uuid_lib
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
 from . import exceptions
+from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
+from PIL.PngImagePlugin import PngImageFile
 from . import constants
 from .signal import Signal
 from .logger import Logger
@@ -33,13 +35,14 @@ class Account:
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
 
-    def __init__(self, domain: str = "localhost", port: int = 8080, is_secure: bool = False, backup_folder: Optional[str] = None):
+    def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None):
         """
         Work with your own Status App account
 
         Parameters:
             - `domain` - the domain name where Status Backend is running. If running locally it would be `localhost` and if it's running in a container it would be the image's name.
-            - `port` - the port to connect to Status Backend. Verify the port in the Docker files.
+            - `backend_port` - the port to connect to Status Backend. If this is changed, the published port for `backend_port` must be updated to match in `docker-compose.yaml` as well.
+            - `media_port` - the port to connect to Status localhost images. If this is changed, the published port for `media_port` must be updated to match in `docker-compose.yaml` as well.
             - `is_secure` - if `http` or `https` should be used
             - `backup_folder` - where backup files will be created and stored
         """
@@ -79,8 +82,9 @@ class Account:
         # All available ISO 4217 currencies
         self.__iso4217_ccy = []
         # All tokens in Status Backend
-        self.__http_base_url = f"http{'s' if is_secure else ''}://{domain}:{port}/statusgo/"
-        self.__ws_base_url = f"ws://{domain}:{port}/"
+        self.__domain = domain
+        self.__http_base_url = f"http{'s' if is_secure else ''}://{domain}:{backend_port}/statusgo/"
+        self.__ws_base_url = f"ws://{domain}:{backend_port}/"
         self.__urls = {
             "http": {
                 "initialize": f"{self.__http_base_url}InitializeApplication",
@@ -97,6 +101,7 @@ class Account:
                 "signals": f"{self.__ws_base_url}signals"
             }
         }
+        self.__media_port = media_port
         self.__signal = Signal(self.__urls["socket"]["signals"])
         # Initialize profile
         self.available_accounts
@@ -252,9 +257,14 @@ class Account:
         """
         All locally available accounts
         """
-        response = requests.post(self.__urls["http"]["initialize"], json={
-            "dataDir": self.__docker_data_folder
-        })
+        params = {
+            "dataDir": self.__docker_data_folder,
+            # Address the media server listens on (inside the container, if dockerized)
+            "mediaServerAddress": f"{self.__domain}:{self.__media_port}",
+            "mediaServerAdvertizeHost": self.__domain,
+            "mediaServerAdvertizePort": self.__media_port,
+        }
+        response = requests.post(self.__urls["http"]["initialize"], json=params)
         data: dict = response.json()
         accounts: list[dict] = data.get("accounts", [])
         if not isinstance(accounts, list):
@@ -328,25 +338,18 @@ class Account:
         self.bio = ""
 
     @property
-    def profile_picture(self) -> Optional[JpegImageFile]:
+    def profile_picture(self) -> Optional[Union[JpegImageFile, PngImageFile]]:
         """
         Get current profile picture
         """
-        files = [
-            os.path.join(self.__assets_local_folder, f)
-            for f in os.listdir(self.__assets_local_folder)
-            if os.path.isfile(os.path.join(self.__assets_local_folder, f))
-        ]
-        if not files:
-            return
-
-        latest_file_path = max(files, key=os.path.getctime)
-        for file in files:
-          if file == latest_file_path:
-            continue
-          os.remove(file)
-
-        return Image.open(latest_file_path)
+        identity_images = self.__call_rpc("identity", "getIdentityImages", [self.info["key_uid"]])
+        latest = max(identity_images.get("result", []), key=lambda item: item["clock"], default=None)
+        if not latest:
+            return None
+        latest_url = latest["localUrl"]
+        response = requests.get(latest_url, verify=False)
+        image = Image.open(BytesIO(response.content))
+        return image
 
     @profile_picture.setter
     def profile_picture(self, file_path: str):
@@ -1323,7 +1326,6 @@ class Account:
             return
         self.logger.info("Starting messaging")
         self.__call_rpc("messaging", "startMessenger")
-        self.__signal.get("wakuv2.peerstats")
         self.__signal.get("waku.connection.status.change")
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
@@ -1345,7 +1347,7 @@ class Account:
 
     def call_rpc(self, prefix: str, method_name: str, params: Optional[Union[list, dict]] = None) -> dict:
         """
-        For faster development purposes
+        For faster development purposes. Used only for development.
         """
         return self.__call_rpc(prefix, method_name, params)
 
@@ -1483,7 +1485,7 @@ class Account:
             - `name` - the name that the user wants to use to login / create account / change
 
         Output:
-            - `True` if the name was successfully changed. A
+            - `True` if the name was successfully changed.
         """
         if name != name.strip():
             raise exceptions.InvalidDisplayNameError("Display name cannot start or end with a space.")

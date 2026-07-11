@@ -84,14 +84,15 @@ Wallet features are optional and can be omitted if not required for your use cas
 
 ![Status App Wallet](./images/wallet.png)
 
-## `Account(domain="localhost", port=8080, is_secure=False, backup_folder=None)`
+## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None)`
 
-Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
+Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `backend_port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `domain` | `str` | No | Domain where Status Backend is reachable. Defaults to `localhost` when running through [`launch_docker_container`](./utils.md#launch_docker_container) on the same machine. **Use the container name when the SDK runs inside the same Docker network as Status Backend.** |
-| `port` | `int` | No | Port exposed by Status Backend. Defaults to `8080`. Verify the value in `docker-compose.yaml` if you have customized the setup. |
+| `backend_port` | `int` | No | Port exposed by Status Backend. Defaults to `8080`. If this is changed, the published port for `backend_port` must be updated to match in `docker-compose.yaml` as well. |
+| `media_port` | `int` | No | Port exposed by the Status media server, used to fetch localhost images such as the [profile picture](./account.md#profile_picture). Defaults to `9000`. If this is changed, the published port for `media_port` must be updated to match in `docker-compose.yaml` as well. |
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
 | `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be stored and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups).  |
 

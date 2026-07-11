@@ -5,9 +5,13 @@ services:
         platform: linux/amd64
         container_name: status-backend
         ports:
-            - 8080:8080
+            - 8080:8080 # backend_port
+            - 9000:9000 # media_port
             - 8545:8545
             - 30303:30303
+        environment:
+            STATUS_GO_MEDIA_SERVER_PORT: "9000"
+            STATUS_GO_MEDIA_SERVER_HOST: "0.0.0.0"
         entrypoint: 'status-backend'
         command: '-address 0.0.0.0:8080'
         volumes:
