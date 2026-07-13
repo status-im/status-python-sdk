@@ -855,11 +855,7 @@ tx_hash = account.send_transaction(
 
 #### `swap_tokens(from_token, to_token, amount, chain_id=1)`
 
-Swap one token for another on a single chain using the Status Backend routing engine. The swapped output is sent back to the **logged-in account's wallet**.
-
-Each token can be identified either by its Status symbol (e.g. `ETH`, `SNT`, `USDT`) or by its contract address. Before submitting, the method validates that `from_token` exists in the wallet's balance and that the wallet holds enough of it for the requested `amount`. **Only ETH to ERC-20 and ERC-20 to ETH swaps are currently supported** - the `from_token` / `to_token` must be `ETH`. **ERC-20** to **ERC-20** swaps (e.g. `SNT` to `USDT`) and **ERC-20** to **ETH** (`SNT` to `ETH`) are not supported yet.
-
-The swap happens on a **single chain** - both `from_token` and `to_token` must exist on the given `chain_id`. Cross-chain swaps are not supported. Swaps are submitted with a fixed slippage tolerance of `0.5%`.
+Swap one token for another on a single chain. The swap happens on a **single chain** - both `from_token` and `to_token` must exist on the given `chain_id`. Cross-chain swaps are not supported. Swaps are submitted with a fixed slippage tolerance of `0.5%`.  Each token can be identified either by its Status symbol (e.g. `ETH`, `SNT`, `USDT`) or by its contract address. Before submitting, the method validates that `from_token` exists in the wallet's balance and that the wallet holds enough of it for the requested `amount`.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
@@ -918,6 +914,30 @@ tx_hash = account.swap_tokens(
     from_token="USDC",
     to_token="ETH",
     amount=100
+)
+print(f"Swap: https://etherscan.io/tx/{tx_hash}")
+```
+
+Swap **ERC-20** for an **ERC-20** token:
+
+```python
+from bot import Account
+
+account = Account()
+
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP",
+    "infura_token": "token from https://www.infura.io/",
+    "alchemy_token": "token from https://www.alchemy.com/",
+    "coingecko_api_key": "API key from https://www.coingecko.com/"
+}
+account.login(**params)
+
+tx_hash = account.swap_tokens(
+    from_token="USDC",
+    to_token="USDT",
+    amount=0.01
 )
 print(f"Swap: https://etherscan.io/tx/{tx_hash}")
 ```

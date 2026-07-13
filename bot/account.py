@@ -1098,12 +1098,9 @@ class Account:
         self.logger.info(f"Transaction: {url}")
         return transaction_hash
 
-    def swap_tokens(self, from_token: str, to_token: str, amount: float, chain_id: int = 1) -> Optional[str]:
+    def swap_tokens(self, from_token: str, to_token: str, amount: float, chain_id: int = 1) -> str:
         """
         Convert ERC-20 token to ETH and ETH to ERC-20 token.
-
-        NOTE: Only `ETH` <-> ERC-20 swaps are currently supported. ERC-20 <-> ERC-20
-        swaps (e.g. `SNT` <-> `USDT`) are not yet implemented and the routing engine
 
         Parameters:
             - `from_token` - the token to swap from. Either a valid Status token symbol from `get_tokens()` (e.g. `ETH`), or its address
@@ -1114,122 +1111,145 @@ class Account:
         Output:
             - Transaction hash to monitor the swap's progress
         """
-        def normalize_token(token: str, chain_id: int) -> str:
+        def __swap_tokens(from_token: str, to_token: str, amount: float, chain_id: int, call_counter: int = 1) -> str:
             """
-            Normalize token input so it can be passed to
+            `call_counter` is used for swaps only. A swap needs 2 `__swap_tokens` calls:
+                - Call (1) is a `Approve` Method
+                - Call (2) is a `Swap Exact Amount` Method
             """
-            if token.startswith("0x"):
-                return f"{chain_id}-{token}"
+            def normalize_token(token: str, chain_id: int) -> str:
+                """
+                Normalize token input so it can be passed to
+                """
+                if token.startswith("0x"):
+                    return f"{chain_id}-{token}"
 
-            tokens = self.get_tokens()
-            token = token.upper()
-            # NOTE: There are multiple ETHs
-            if token == "ETH":
-                return f"{chain_id}-{self.__ETH_ADDRESS}"
+                tokens = self.get_tokens()
+                token = token.upper()
+                # NOTE: There are multiple ETHs
+                if token == "ETH":
+                    return f"{chain_id}-{self.__ETH_ADDRESS}"
 
-            query = (tokens["symbol"] == token) & (tokens["chain_id"] == chain_id)
-            if query.sum() == 0:
-                raise exceptions.InvalidTokenError(f"Token {token} on chain {chain_id} is not available...")
+                query = (tokens["symbol"] == token) & (tokens["chain_id"] == chain_id)
+                if query.sum() == 0:
+                    raise exceptions.InvalidTokenError(f"Token {token} on chain {chain_id} is not available...")
 
-            selected = tokens.loc[query].copy()
-            token_key = selected.apply(lambda row: f"{row['chain_id']}-{row['address']}", axis=1).drop_duplicates().iloc[0]
-            return token_key
+                selected = tokens.loc[query].copy()
+                token_key = selected.apply(lambda row: f"{row['chain_id']}-{row['address']}", axis=1).drop_duplicates().iloc[0]
+                return token_key
 
-        def to_hex_wei(amount: float, address: str, chain_id: int) -> str:
-            """
-            Convert the `from_token` amount to hexadecimal WEI
-            """
-            # Remove chain_id from beginning
-            address = address.split("-")[-1]
-            tokens = self.get_tokens()
-            query = (tokens["address"] == address) & (tokens["chain_id"] == chain_id)
-            selected = tokens.loc[query].reset_index(drop=True).copy()
-            decimals = int(selected["decimals"].iloc[0])
-            raw_amount = int(amount * (10**decimals))
-            return hex(raw_amount)
+            def to_hex_wei(amount: float, address: str, chain_id: int) -> str:
+                """
+                Convert the `from_token` amount to hexadecimal WEI
+                """
+                # Remove chain_id from beginning
+                address = address.split("-")[-1]
+                tokens = self.get_tokens()
+                query = (tokens["address"] == address) & (tokens["chain_id"] == chain_id)
+                selected = tokens.loc[query].reset_index(drop=True).copy()
+                decimals = int(selected["decimals"].iloc[0])
+                raw_amount = int(amount * (10**decimals))
+                return hex(raw_amount)
 
-        def verify(from_address: str, amount: float):
-            """
-            Verify if the FROM address exists in the wallet and has enough balance.
-            """
-            balance = self.balance
-            query = balance["chain_id"].astype(str) + "-" + balance["address"] == from_address
-            if query.sum() == 0:
-                raise exceptions.InvalidTokenError(f"Token {from_address} was not found in your wallet ({self.info['wallet_address']})...")
+            def verify(from_address: str, amount: float):
+                """
+                Verify if the FROM address exists in the wallet and has enough balance.
+                """
+                balance = self.balance
+                query = balance["chain_id"].astype(str) + "-" + balance["address"] == from_address
+                if query.sum() == 0:
+                    raise exceptions.InvalidTokenError(f"Token {from_address} was not found in your wallet ({self.info['wallet_address']})...")
 
-            selected = balance.loc[query].reset_index(drop=True).copy()
-            available_amount = selected["amount"].iloc[0]
-            if available_amount < amount:
-                raise exceptions.InvalidTokenError(f"Token {from_address} has a balance of {available_amount} but you are trying to swap {amount}...")
+                selected = balance.loc[query].reset_index(drop=True).copy()
+                available_amount = selected["amount"].iloc[0]
+                if available_amount < amount:
+                    raise exceptions.InvalidTokenError(f"Token {from_address} has a balance of {available_amount} but you are trying to swap {amount}...")
 
 
-        from_address = normalize_token(from_token, chain_id)
-        verify(from_address, amount)
-        to_address = normalize_token(to_token, chain_id)
+            from_address = normalize_token(from_token, chain_id)
+            verify(from_address, amount)
+            to_address = normalize_token(to_token, chain_id)
 
-        # ETH <-> ERC-20 swaps
-        is_eth_swap = from_address.split("-")[-1] == self.__ETH_ADDRESS or to_address.split("-")[-1] == self.__ETH_ADDRESS
-        if not is_eth_swap:
-            raise exceptions.InvalidTokenError(f"Only ETH <-> ERC-20 swaps are supported. Either `from_token` or `to_token` must be ETH (got {from_token} -> {to_token})...")
+            # ETH <-> ERC-20 swaps
+            is_eth_swap = from_address.split("-")[-1] == self.__ETH_ADDRESS or to_address.split("-")[-1] == self.__ETH_ADDRESS
 
-        amount_in = to_hex_wei(amount, from_address, chain_id)
-        transaction_uuid = str(uuid_lib.uuid4())
-        params = {
-            "uuid": transaction_uuid,
-            "sendType": 8, # swap
-            "addrFrom": self.info["wallet_address"],
-            "addrTo":   self.info["wallet_address"], # swap output goes back to you
-            "amountIn":  amount_in,
-            "amountOut": "0x0",
-            "tokenKey":   from_address,
-            "toTokenKey": to_address,
-            "tokenIDIsOwnerToken": False,
-            "fromChainID": chain_id,
-            "toChainID":   chain_id,
-            "gasFeeMode":  1,
-            "slippagePercentage": 0.5,
-        }
-        # (1) Get suggested routes
-        self.signal.connect()
-        with self.signal.expect("wallet.suggested.routes") as exp:
-            self.__call_rpc("wallets", "getSuggestedRoutesAsync", [params])
-
-        suggested_routes = exp.result
-        error = suggested_routes["event"].get("ErrorResponse", {})
-        if error:
-            details = "\n".join([f"{key}: {value}" for key, value in error.items()])
-            raise exceptions.BackendError(f"Status Backend could not build a swap route for {from_token} -> {to_token} on chain {chain_id}:\n{details}")
-
-        params = [suggested_routes["event"]["Uuid"]]
-        # (2) Build transaction from Route
-        with self.signal.expect("wallet.router.sign-transactions") as exp:
-            self.__call_rpc("wallets", "buildTransactionsFromRoute", params)
-
-        # (3) Sign transaction
-        signed_transaction = exp.result
-        event = signed_transaction["event"]
-        signatures = {}
-        for hash in event["signingDetails"]["hashes"]:
-            params = [hash, self.info["wallet_address"], self.info["password"]]
-            sig = self.__call_rpc("wallets", "signMessage", params).get("result")
-            # Strip 0x
-            raw = sig[2:]
-            signatures[hash] = {
-                "r": raw[:64],
-                "s": raw[64:128],
-                "v": raw[128:]
+            amount_in = to_hex_wei(amount, from_address, chain_id)
+            transaction_uuid = str(uuid_lib.uuid4())
+            params = {
+                "uuid": transaction_uuid,
+                "sendType": 8, # swap
+                "addrFrom": self.info["wallet_address"],
+                "addrTo":   self.info["wallet_address"], # swap output goes back to you
+                "amountIn":  amount_in,
+                "amountOut": "0x0",
+                "tokenKey":   from_address,
+                "toTokenKey": to_address,
+                "tokenIDIsOwnerToken": False,
+                "fromChainID": chain_id,
+                "toChainID":   chain_id,
+                "gasFeeMode":  1,
+                "slippagePercentage": 0.5,
             }
+            # (1) Get suggested routes
+            self.signal.connect()
+            with self.signal.expect("wallet.suggested.routes") as exp:
+                self.__call_rpc("wallets", "getSuggestedRoutesAsync", [params])
 
-        # (4) Send transaction
-        with self.signal.expect("wallet.router.transactions-sent") as exp:
-            params = [{"uuid": transaction_uuid, "signatures": signatures}]
-            self.__call_rpc("wallets", "sendRouterTransactionsWithSignatures", params)
+            suggested_routes = exp.result
+            error = suggested_routes["event"].get("ErrorResponse", {})
+            if error:
+                details = "\n".join([f"{key}: {value}" for key, value in error.items()])
+                raise exceptions.BackendError(f"Status Backend could not build a swap route for {from_token} -> {to_token} on chain {chain_id}:\n{details}")
 
-        event: dict[str, dict] = exp.result["event"]
-        # Usually just 1
-        sent_transactions: list[dict] = event["sentTransactions"]
-        self.signal.disconnect()
-        return sent_transactions[0]["hash"]
+            params = [suggested_routes["event"]["Uuid"]]
+            # (2) Build transaction from Route
+            with self.signal.expect("wallet.router.sign-transactions") as exp:
+                self.__call_rpc("wallets", "buildTransactionsFromRoute", params)
+
+            # (3) Sign transaction
+            signed_transaction = exp.result
+            event = signed_transaction["event"]
+            signatures = {}
+            for hash in event["signingDetails"]["hashes"]:
+                params = [hash, self.info["wallet_address"], self.info["password"]]
+                sig = self.__call_rpc("wallets", "signMessage", params).get("result")
+                # Strip 0x
+                raw = sig[2:]
+                signatures[hash] = {
+                    "r": raw[:64],
+                    "s": raw[64:128],
+                    "v": raw[128:]
+                }
+
+            # (4) Send transaction
+            with self.signal.expect("wallet.router.transactions-sent") as exp:
+                params = [{"uuid": transaction_uuid, "signatures": signatures}]
+                self.__call_rpc("wallets", "sendRouterTransactionsWithSignatures", params)
+
+            event: dict[str, dict] = exp.result["event"]
+            # Usually just 1
+            sent_transactions: list[dict] = event["sentTransactions"]
+            transaction_hash = sent_transactions[0]["hash"]
+
+            # ETH <-> ERC-20 transactions - END
+            if is_eth_swap:
+                self.signal.disconnect()
+                return transaction_hash
+            # ERC-20 <-> ERC-20 transactions - require one more pass
+            if call_counter == 1:
+                with self.signal.expect("wallet", accept_fn=lambda signal: signal["event"]["type"] == "pending-transaction-status-changed", timeout=120) as exp:
+                    pass
+
+                self.signal.disconnect()
+                __swap_tokens(from_token, to_token, amount, chain_id, call_counter + 1)
+            else:
+                self.signal.disconnect()
+
+            return transaction_hash
+
+        return __swap_tokens(from_token, to_token, amount, chain_id)
+
+
 
     def get_transactions(self, refresh: bool = False) -> pd.DataFrame:
         """
