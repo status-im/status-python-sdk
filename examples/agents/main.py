@@ -2,15 +2,9 @@ from langchain_groq import ChatGroq
 from langchain.agents import create_agent
 from dotenv import load_dotenv
 from typing import Optional
-import os, sys
-import pandas as pd
-
-# Temp solution until repo it turned into a PyPI library
-# Add the repo root to sys.path so `bot` is importable when running this
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-
+import os
 import tools
-from bot import Account, launch_docker_container
+from status_sdk import Account, launch_docker_container
 
 class StatusToolKit:
 

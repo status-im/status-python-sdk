@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "status-sdk"
+version = "1.0.0"
+description = "Private chat. Communities. Multi-chain wallet. Browser. dApps all in one app, powered by SNT."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [{ name = "Status Research & Development GmbH" }]
+keywords = ["privacy", "decentralized", "messenger", "ethereum", "blockchain", "cryptocurrency"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests",
+    "websocket-client",
+    "websockets",
+    "pandas",
+    "pillow",
+    "eth-abi",
+]
+
+[project.optional-dependencies]
+agents = [
+    "tabulate",
+    "langchain",
+    "langchain-core",
+    "langchain-groq",
+    "python-dotenv",
+]
+
+[project.urls]
+Source = "https://github.com/status-im/status-python-sdk"
+Issues = "https://github.com/status-im/status-python-sdk/issues"
+"Status App" = "https://status.app/"
+"Status Backend" = "https://github.com/status-im/status-go"
+
+[tool.setuptools]
+packages = ["status_sdk"]
+
+[tool.setuptools.package-data]
+status_sdk = ["docker-compose.yaml"]
+

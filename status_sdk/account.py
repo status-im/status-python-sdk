@@ -35,7 +35,7 @@ class Account:
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
 
-    def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None):
+    def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None):
         """
         Work with your own Status App account
 
@@ -44,7 +44,8 @@ class Account:
             - `backend_port` - the port to connect to Status Backend. If this is changed, the published port for `backend_port` must be updated to match in `docker-compose.yaml` as well.
             - `media_port` - the port to connect to Status localhost images. If this is changed, the published port for `media_port` must be updated to match in `docker-compose.yaml` as well.
             - `is_secure` - if `http` or `https` should be used
-            - `backup_folder` - where backup files will be created and stored
+            - `backup_folder` - where backup files will be created and loaded
+            - `volume_folder` - directory containing the `backups` and `assets` folders mounted into the Status Backend Docker container (folder holding `docker-compose.yaml`). Defaults to this package's own installation folder. Set this when Status Backend is launched from a different `docker-compose.yaml` location, such as a local clone of the repo.
         """
         # Wallet transactions
         self.__alchemy_token = None
@@ -54,16 +55,17 @@ class Account:
         # Path of the backups in the Docker container for Status Backend
         self.__docker_backup_folder = "./root/.config/Status/backups"
         self.__backup_folder = backup_folder
+        # PyPI installation folder
+        sdk_folder = volume_folder if volume_folder else os.path.dirname(__file__)
         # As the docker-compose.yaml folder is at the moment
-        # NOTE: This might change for initial release
-        self.__backup_sdk_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups")
+        self.__backup_sdk_folder = os.path.join(sdk_folder, "backups")
         os.makedirs(self.__backup_sdk_folder, exist_ok=True)
 
         # Path of where images will be uploaded to Status Backend
         self.__docker_asset_folder = "./assets"
         # As the docker-compose.yaml folder is at the moment
         # NOTE: This might change for initial release
-        self.__assets_local_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        self.__assets_local_folder = os.path.join(sdk_folder, "assets")
         os.makedirs(self.__assets_local_folder, exist_ok=True)
 
         self.__logger = Logger()
@@ -1379,7 +1381,7 @@ class Account:
         folder = self.__backup_folder if self.__backup_folder else self.__backup_sdk_folder
 
         file_name = self.info["compressed_key"][-6:] + "_user_data.bkp"
-        file_path = os.path.join(folder, self.info["compressed_key"][-6:] + "_user_data.bkp")
+        file_path = os.path.join(folder, file_name)
         if not os.path.exists(file_path):
             self.logger.warning(f"Backup file was not found in {folder}")
             return

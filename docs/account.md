@@ -84,7 +84,7 @@ Wallet features are optional and can be omitted if not required for your use cas
 
 ![Status App Wallet](./images/wallet.png)
 
-## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None)`
+## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None, volume_folder=None)`
 
 Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `backend_port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
 
@@ -94,12 +94,13 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 | `backend_port` | `int` | No | Port exposed by Status Backend. Defaults to `8080`. If this is changed, the published port for `backend_port` must be updated to match in `docker-compose.yaml` as well. |
 | `media_port` | `int` | No | Port exposed by the Status media server, used to fetch localhost images such as the [profile picture](./account.md#profile_picture). Defaults to `9000`. If this is changed, the published port for `media_port` must be updated to match in `docker-compose.yaml` as well. |
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
-| `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be stored and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups).  |
+| `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be created and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups).  |
+| `volume_folder` | `str` | No | Directory containing the `docker-compose.yaml` whose `backups/` and `assets/` folders are mounted into the Status Backend container. Defaults to this package's own installation folder (e.g. the `status_sdk` folder under `site-packages` when installed via `pip`). Set this when Status Backend is launched from a different `docker-compose.yaml`, such as a local clone of the repository. |
 
 The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 ```
@@ -107,7 +108,7 @@ account = Account()
 Use a custom backup folder:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account(backup_folder=r"C:\\Users\\me\\status-backups")
 ```
@@ -115,7 +116,7 @@ account = Account(backup_folder=r"C:\\Users\\me\\status-backups")
 Connect to a Status Backend running on a different host or port:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account(
     domain="status-backend.internal",
@@ -124,9 +125,19 @@ account = Account(
 )
 ```
 
+Run against a local clone of the repository instead of with [`launch_docker_container`](./utils.md#launch_docker_container):
+
+```python
+from status_sdk import Account
+
+account = Account(volume_folder="/path/to/status-python-sdk/status_sdk")
+```
+
 **Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) will fail.
 
 **Note**: When `backup_folder` is set, [`backup`](./account.md#backup) moves the generated `.bkp` file out of the SDK's internal `backups/` folder into the provided path, and recovery via `mnemonic` will look in this same folder for `.bkp` files to auto-load. Make sure the folder exists and is writable.
+
+**Note**: `volume_folder` must match the directory containing the `docker-compose.yaml` actually used to launch Status Backend, since that is what determines where Docker mounts `backups/` and `assets/` on the host. If `volume_folder` points elsewhere, `Account` will create and use folders that are never seen by the running container.
 
 ## Methods
 
@@ -156,7 +167,7 @@ Returns the current `Account` instance, allowing method chaining.
 
 #### Login with Display name
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -175,7 +186,7 @@ The code above is equivalent to the following screen on Status App:
 #### Login with ENS
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -194,7 +205,7 @@ You can purchase a **universal username** on Status App:
 #### Login with `key_uid`
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -207,7 +218,7 @@ account.login(**params)
 #### Recover account
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -227,7 +238,7 @@ The code above is equivalent to the following screen on Status App:
 #### Wallet setup
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -248,7 +259,7 @@ account.login(**params)
 Logout from the currently logged-in Status account. This method also clears the internal account state and stops the active messenger session. This function is also supported in `del` and when the script automatically finishes.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -274,7 +285,7 @@ Returns `str` representing the **Docker path** of the generated backup file. The
 The filename is generated by the Status Backend and follows the pattern `<suffix>_user_data.bkp`, where `<suffix>` is the **last 6 characters of the account's compressed public key**. For example, an account whose compressed key ends in `abc123` produces `abc123_user_data.bkp`. Because the suffix is derived deterministically from the account's key, the same account always maps to the same filename, which is how a backup is uniquely associated with its account.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account(backup_folder=r"C:\\Users\\me\\status-backups")
 params = {
@@ -299,7 +310,7 @@ Send a text message to a specific chat. This method currently supports **text me
 | `message` | `str` | Yes | The text message to send. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -330,7 +341,7 @@ Messages can be fetched from:
 Returns `list[dict]` containing message objects. Timestamp fields returned by the backend are automatically converted into `datetime.datetime` objects.
 
 ```python
-from bot import Account
+from status_sdk import Account
 import datetime
 
 account = Account()
@@ -358,7 +369,7 @@ for message in messages:
 Listen for new incoming messages **in real time**. This method yields raw message events as they are received from the Status Backend [signal](./account.md#signallisten) `messages.new`. This method is ideal for developing real time chat applications
 
 ```python
-from bot import Account
+from status_sdk import Account
 import datetime
 # For terminal readability only
 from rich import print as rprint
@@ -400,7 +411,7 @@ Modes:
 Returns the current `Account` instance, allowing method chaining.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -443,7 +454,7 @@ Returns `bool`.
 | `False` | The contact does not exist or was already removed. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -473,7 +484,7 @@ Send a request to join a community using its invitation URL. The method parses t
 Returns `datetime.datetime` representing when the join request was submitted.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -506,7 +517,7 @@ Returns `pd.DataFrame`.
 | `source_id` | `str` | Source list from which the token was fetched. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -539,7 +550,7 @@ Returns `pd.DataFrame`.
 | `price` | `float` | Token price **for 1 `token_symbol`** in the given fiat currency (only present if `ccy` is provided). If you want to get the amount in the wallet, you must `amount * price`. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -566,7 +577,7 @@ data = account.get_balance(token_addresses)
 Access multuple chains:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -594,7 +605,7 @@ data = account.get_balance(token_addresses, chain_ids)
 Access multiple wallets:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -626,7 +637,7 @@ data = account.get_balance(token_addresses, chain_ids, wallets)
 Get token prices:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -705,7 +716,7 @@ Returns `pd.DataFrame`, sorted by `timestamp` in descending order (newest first)
 | `trx_fee` | `float` | Gas fee paid in the chain's native token, computed as `gas_price * gas_used / 10**18`. Populated only for `sent` rows; `0` for `received` rows since the receiver does not pay gas. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -744,7 +755,7 @@ Returns `str` representing the **transaction hash**. The hash can be appended to
 Send ETH:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -770,7 +781,7 @@ print(f"Transaction: https://etherscan.io/tx/{tx_hash}")
 Send an ERC-20 token by symbol:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -795,7 +806,7 @@ tx_hash = account.send_transaction(
 Send an ERC-20 token by contract address:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -821,7 +832,7 @@ tx_hash = account.send_transaction(
 Send on a different chain:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -873,7 +884,7 @@ Returns `str` representing the **transaction hash**. The hash can be appended to
 Swap **ETH** for an **ERC-20** token:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -897,7 +908,7 @@ print(f"Swap: https://etherscan.io/tx/{tx_hash}")
 Swap **ERC-20** for an **ETH** token:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -921,7 +932,7 @@ print(f"Swap: https://etherscan.io/tx/{tx_hash}")
 Swap **ERC-20** for an **ERC-20** token:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -965,7 +976,7 @@ Returns `list[dict]`, one entry per locally available account.
 | `created_at` | `datetime.datetime` | Timestamp when the account was created locally. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 # For terminal readability only
 from rich import print as rprint
 from rich.pretty import Pretty
@@ -994,7 +1005,7 @@ Provides information about the currently logged-in account. If `login()` has not
 | `logged_in_timestamp` | `datetime.datetime` | Timestamp when the account successfully logged in. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1013,7 +1024,7 @@ Get or update the current display name of the logged‑in account.
 Returns `str` when reading the property.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1029,7 +1040,7 @@ print(account.display_name)
 You can update the display name by assigning a new value:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1052,7 +1063,7 @@ Get or update the **bio** of the currently logged‑in account. The length of th
 Returns `str` when reading the property.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1068,7 +1079,7 @@ print(account.bio)
 The value assigned to `bio` will automatically be converted to a string before being sent to the backend. You can update the bio by assigning a new value:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1085,7 +1096,7 @@ print(account.bio)
 You can also **clear the bio** by deleting the property:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1107,7 +1118,7 @@ Get or update the **profile picture** of the currently logged‑in account. The 
 Returns `PIL.Image.Image` when reading the property, or `None` if no profile picture has been set.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1125,7 +1136,7 @@ if image:
 The file path assigned to `profile_picture` will be automatically set as the latest profile picture in Status App. If the given file does not exist or the extension is not supported, an **exception will be raised**. Supported image formats are `.jpg`, `.jpeg` and `.png`.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1154,7 +1165,7 @@ The property exposes the following methods:
 - `signal.expect()` - return a context manager that waits for one or more matching signals to arrive **after** you perform an action. This is the recommended way to make **async message calls**, since it removes the race conditions and infinite-loop risk of `get()`.
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1191,7 +1202,7 @@ Default logger configuration:
 Example:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -1236,7 +1247,7 @@ Returns `dict[str, dict]` where the key is the contact's **public key**. This ma
 | `last_updated` | `datetime.datetime` | Timestamp when the contact information was last updated. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1304,7 +1315,7 @@ Channel permissions:
 | `token_gated` | `bool` | Whether the channel requires a token to participate. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1341,7 +1352,7 @@ Returns `pd.DataFrame`.
 | `status_alias` | `str` | Initial display name of the member when the account was created. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1370,7 +1381,7 @@ Returns `list[dict]` where each `dict` represents a chat that can be used with [
 | `name` | `str` | Either the display name of the user or the community channel name. |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -1400,7 +1411,7 @@ Returns `dict[int, str]`.
 
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -1430,7 +1441,7 @@ Returns `pd.DataFrame`.
 | `symbol` | `str` | Token symbol (e.g. `ETH`, `USDT`). |
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 
@@ -1448,7 +1459,7 @@ print(account.balance)
 You can convert the current balance into fiat currency by using a [ISO 4217 currency code](https://www.iso.org/iso-4217-currency-codes.html) in the `[]` accessor:
 
 ```python
-from bot import Account
+from status_sdk import Account
 
 account = Account()
 

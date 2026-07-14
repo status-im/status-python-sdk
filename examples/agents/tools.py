@@ -5,7 +5,7 @@ import pandas as pd
 import datetime
 
 import models
-from bot import Account, exceptions
+from status_sdk import Account, exceptions
 
 
 class StatusBaseTool(BaseTool):
