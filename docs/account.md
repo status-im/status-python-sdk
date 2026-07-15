@@ -1,6 +1,6 @@
 # Account
 
-![Account header image](./images/overview-account.png)
+![Account header image](./images/account/overview.png)
 
 The account class allows you to easily work with a Status account.
 
@@ -46,7 +46,7 @@ If a display name does not follow these rules, a **`ValueError`** will be raised
 
 Backup files (`.bkp`) can be both created in [Status App](https://our.status.im/status-desktop-v2-35-local-backups-new-home-page-performance-boosts-and-more/) and the [Python SDK](./account.md#backup). 
 
-![Status App Backup](./images/backup.png)
+![Status App Backup](./images/account/backup.png)
 
 [Status Backend](https://github.com/status-im/status-go) backup folder is exposed in a Docker volume so users can:
 
@@ -75,14 +75,14 @@ flowchart LR
     app <--> shared <--> sdk <--> Vol1
 ```
 
-Because the filename is derived from the account's key rather than from whoever wrote it, the same account always maps to the same `.bkp` file - so neither side needs to know which tool produced the backup.
+Because the file name is derived from the account's key rather than from whoever wrote it, the same account always maps to the same `.bkp` file - so neither side needs to know which tool produced the backup.
 
 
 ## Wallet
 
 Wallet features are optional and can be omitted if not required for your use case. They provide functionality equivalent to the **Wallet** and **Market** tabs.
 
-![Status App Wallet](./images/wallet.png)
+![Status App Wallet](./images/account/wallet.png)
 
 ## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None, volume_folder=None)`
 
@@ -145,7 +145,7 @@ account = Account(volume_folder="/path/to/status-python-sdk/status_sdk")
 
 Login to an existing Status account. If the account does not exist in the initialized data directory, a new account will be created and automatically logged in. 
 
-![Account creation](./images/login/create.png)
+![Account creation](./images/account/login/create.png)
 
 After a successful login, the decentralized messenger service is automatically started so the account can send and receive messages.
 
@@ -179,7 +179,7 @@ account.login(**params)
 
 The code above is equivalent to the following screen on Status App:
 
-![Log in screen](./images/login/log-in.png)
+![Log in screen](./images/account/login/log-in.png)
 
 **Note**: This assumes that `display_name` and is unique for every `key_uid`. If there are duplicated `display_names` then the first found match will be used. You can log in with `key_uid` if you have `display_name` duplicates.
 
@@ -198,7 +198,7 @@ account.login(**params)
 
 You can purchase a **universal username** on Status App:
 
-![ENS purchase](./images/ens.png)
+![ENS purchase](./images/account/ens.png)
 
 
 
@@ -231,7 +231,7 @@ account.login(**params)
 
 The code above is equivalent to the following screen on Status App:
 
-![Recover screen](./images/login/recover.png)
+![Recover screen](./images/account/login/recover.png)
 
 **Note**: When in recovery mode, the display name is updated on Status App as well so it is consistent locally and to other users.
 
@@ -363,6 +363,42 @@ for message in messages:
 ```
 
 **Note**: If there are missing messages in a chat that might be because the node (Status Backend) has not received them yet. They may appear later.
+
+#### `delete_message(id)`
+
+Delete one of your **own** messages from a chat. The deletion is propagated to the other members of the chat, so the message disappears for everybody - the same as deleting a message in Status App.
+
+You can only delete messages that the logged-in account has sent. Messages sent by other accounts cannot be deleted, even in a [group chat](./group-chat.md) where the account is the [administrator](./group-chat.md#administrator).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `id` | `str` | Yes | The `id` of the message to delete. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone). |
+
+Returns `bool`.
+
+| Value | Meaning |
+|------|--------|
+| `True` | The message was deleted. |
+| `False` | The message was not deleted, because the account does not have permission to delete it. |
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+account.send_message(chat["id"], "Oops, this was a mistake!")
+
+# Messages are returned newest first, so the message just sent is the first one
+messages = account.get_messages(chat["id"])
+deleted = account.delete_message(messages[0]["id"])
+account.logger.info(f"Deleted: {deleted}")
+```
 
 #### `listen_messages()`
 
@@ -1050,7 +1086,7 @@ params = {
 account.login(**params)
 
 # Change the display name
-account.name = "status_bot_42"
+account.display_name = "status_bot_42"
 print(account.display_name)
 ```
 

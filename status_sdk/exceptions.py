@@ -14,6 +14,23 @@ class WalletNotConfiguredError(Exception):
 class InvalidDisplayNameError(ValueError):
     pass
 
+class InvalidGroupChatNameError(ValueError):
+    pass
+
+class GroupChatCreationError(Exception):
+    pass
+
+class GroupChatNotFoundError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Please `create` the chat or initialize the class with `chat_id`")
+
+class GroupChatMembersError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "The Group Chat has no members...")
+
+class PublicKeyError(Exception):
+    pass
+
 class InvalidContactError(ValueError):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Please provide either a Key Unique Identifier (key_uid) or a Display Name / ENS (name)...")

@@ -678,6 +678,7 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the message that will be sent. Currently only text messages are supported
         """
+        self.info
         params = [{
             "chatId": chat_id,
             "text": message,
@@ -685,6 +686,23 @@ class Account:
             "responseTo": ""
         }]
         self.__call_rpc("messaging", "sendChatMessage", params)
+
+    def delete_message(self, id: str) -> bool:
+        """
+        Delete one of your own messages from a chat.
+
+        Parameters:
+            - `id` - the `id` of the message from `account.get_messages()`
+
+        Output:
+            - if `True` then the message was deleted. If `False` then the message was not deleted due to permissions.
+        """
+        self.info
+        response = self.__call_rpc("messaging", "deleteMessageAndSend", [id])
+        error: dict = response.get("error", {})
+        if error:
+            self.logger.warning(f"Could not delete Message {id}... {error.get('message')}")
+        return not bool(error)
 
     def listen_messages(self) -> Generator:
         """
@@ -705,6 +723,9 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `start_timestamp` - the start timestamp for message extraction. If not provided all early messages will be fetched.
             - `end_timestamp` - the end timestamp for message extraction. If not provided all latest messages will be fetched.
+
+        Output:
+            - All messages within the given range
         """
         # NOTE: Order of params matters when making the RCP call
         params = {

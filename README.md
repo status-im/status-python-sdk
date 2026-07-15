@@ -1,6 +1,6 @@
 # Status Python SDK
 
-![Status Python SDK header image](./docs/images/overview-header.png)
+![Status Python SDK header image](./docs/images/readme/overview.png)
 
 [Status](http://status.app/) is a decentralized, open-source super app combining a crypto wallet, messenger, and community spaces. It uses peer-to-peer technology so no central server can censor your messages or access your data.
 
@@ -27,6 +27,7 @@ graph TB
 
    subgraph bot[status-im/status-python-sdk]
         REQUIREMENTS[requirements.txt]
+        GROUP_CHAT[class GroupChat]
         SDK[class Account]
         SIGNAL[class Signal]
     end
@@ -37,6 +38,7 @@ graph TB
         INFURA[Infura]
     end
 
+    GROUP_CHAT --> |logged in Account| SDK
     SDK --> SIGNAL
     SDK --> |Port 8080| RPC
     SDK --> |Port 8080| HTTP
