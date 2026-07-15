@@ -1,6 +1,6 @@
 # Utils
 
-![Utils header image](./images/overview-utils.png)
+![Utils header image](./images/utils/overview.png)
 
 Helper functions for setting up the Status Backend environment.
 
@@ -58,7 +58,7 @@ launch_docker_container(platform="linux/arm64")
 
 In Docker go to `Settings > Resources > WSL integration` and make sure `Enable integration with my default WSL distro` and `Ubuntu` are **turned on**.
 
-![Image of Windows Note](./images/wsl-docker.png)
+![Image of Windows Note](./images/utils/wsl-docker.png)
 
 Docker Desktop creates internal intermediary mounts inside its WSL 2 environment when bind-mounting paths from a WSL distribution into a container. In some  cases, these mounts can become **stale**, and the container may fail to start with:
 
@@ -77,7 +77,7 @@ WSL boots back up on demand, so no manual step is needed. Docker Desktop does ne
 
 In Docker go to `Settings > Resources > File Sharing` and make sure the SDK repository is added to **Virtual file shares**.
 
-![Image of Mac Note](./images/mac-docker.png)
+![Image of Mac Note](./images/utils/mac-docker.png)
 
 #### Linux
 
