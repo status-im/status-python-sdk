@@ -18,24 +18,14 @@ class GroupChat:
         account.info
         self.__account = account
         self.__id = None
-        self.__name = None
-        self.__is_admin = False
-        self.__members = {}
 
         if not chat_id:
             return
 
-        response: dict = account.call_rpc("messaging", "confirmJoiningGroup", [chat_id])
-        if response.get("error"):
-            raise exceptions.GroupChatNotFoundError(f"Group Chat not found...\nChat ID: {chat_id}")
-
-        chat: dict = response["result"]["chats"][0]
-        self.__id = chat_id
-        self.__name = chat["name"]
-        self.__is_admin = self.__extract_admin_public_key(chat["id"]) == self.__account.info["public_key"]
-        self.__members = self.__get_current_chat_members(chat)
-        self.__chat_member_log()
-        self.__account.logger.info(f"Account is{'' if self.__is_admin else ' NOT'} admin.")
+        chat = self.__get_group_info(chat_id)
+        self.__id = chat["id"]
+        is_admin = self.__extract_admin_public_key(chat["id"]) == self.__account.info["public_key"]
+        self.__account.logger.info(f"Account is{'' if is_admin else ' NOT'} admin.")
 
     def create(self, public_keys: Union[list[str], str], name: str):
         """
@@ -48,36 +38,36 @@ class GroupChat:
         Output:
             - the `GroupChat` itself, so calls can be chained
         """
+        if self.__id:
+            raise exceptions.GroupChatAlreadyExistsError("Chat has already been created! To create a new one, please initialize a new `GroupChat`...")
+
         self.__validate_name(name)
         public_keys = self.__get_public_keys(public_keys)
         if len(public_keys) > self.__TOTAL_MEMBERS:
             raise exceptions.GroupChatCreationError(f"Group chats can have up to {self.__TOTAL_MEMBERS} members. Please consider creating a Status Community...")
 
-        response: dict = self.__account.call_rpc("messaging", "createGroupChatWithMembers", [name, public_keys])
+        response: dict = self.__account._call_rpc("messaging", "createGroupChatWithMembers", [name, public_keys])
         error = response.get("error")
         if error:
             raise exceptions.GroupChatCreationError(error["message"])
 
         chat: dict = response["result"]["chats"][0]
         self.__id = chat["id"]
-        self.__name = chat["name"]
-        self.__account.logger.info(f"Created group chat {self.__name} [{self.__id}]")
-        self.__members = self.__get_current_chat_members(chat)
-        self.__chat_member_log()
-        self.__is_admin = self.__extract_admin_public_key(chat["id"]) == self.__account.info["public_key"]
+        self.__account.logger.info(f"Created group chat {name} [{self.id}]")
         return self
 
-    def send_message(self, message: str):
+    def send_message(self, message: str, reply_to_message_id: Optional[str] = None):
         """
         Send a message to the group chat.
 
         Parameters:
             - `message` - the message that will be sent. Currently only text messages are supported
+            - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
 
         Output:
             - the `GroupChat` itself, so calls can be chained
         """
-        self.__account.send_message(self.id, message)
+        self.__account.send_message(self.id, message, reply_to_message_id)
         return self
 
     def get_messages(self, start_timestamp: Optional[datetime.datetime] = None, end_timestamp: Optional[datetime.datetime] = None) -> list[dict]:
@@ -120,11 +110,8 @@ class GroupChat:
             raise exceptions.GroupChatMembersError("Please provide valid Public Keys from the chat only...")
 
         params = [self.id, public_keys]
-        response: dict = self.__account.call_rpc("messaging", "removeMembersFromGroupChat", params)
-        self.__account.signal.get("envelope.sent")
+        response: dict = self.__account._call_rpc("messaging", "removeMembersFromGroupChat", params)
         self.__action_log(public_keys, "remove")
-        chat: dict = response["result"]["chats"][0]
-        self.__members = self.__get_current_chat_members(chat)
         return self
 
     def add(self, public_keys: Union[list[str], str]):
@@ -138,7 +125,7 @@ class GroupChat:
             - the `GroupChat` itself, so calls can be chained
         """
         public_keys = self.__get_public_keys(public_keys)
-        current_members = list(self.__members.keys())
+        current_members = list(self.members.keys())
         public_keys = [
             public_key
             for public_key in public_keys
@@ -149,11 +136,8 @@ class GroupChat:
             return
 
         params = [self.id, public_keys]
-        response: dict = self.__account.call_rpc("messaging", "addMembersToGroupChat", params)
-        self.__account.signal.get("envelope.sent")
+        response: dict = self.__account._call_rpc("messaging", "addMembersToGroupChat", params)
         self.__action_log(public_keys, "add")
-        chat: dict = response["result"]["chats"][0]
-        self.__members = self.__get_current_chat_members(chat)
         return self
 
     def leave(self):
@@ -165,11 +149,8 @@ class GroupChat:
         Output:
             - the `GroupChat` itself, so calls can be chained
         """
-        self.__account.call_rpc("messaging", "leaveGroupChat", [self.id, True])
+        self.__account._call_rpc("messaging", "leaveGroupChat", [self.id, True])
         self.__id = None
-        self.__name = None
-        self.__members = {}
-        self.__is_admin = False
         self.__account.logger.info(f"Left group chat {self.name} [{self.id}]")
         return self
 
@@ -190,41 +171,42 @@ class GroupChat:
     def members(self) -> dict[str, dict]:
         """
         The current members in the chat, mapped by their public key.
-
-        NOTE: The members are cached from the last `create`, `add` or `remove`
-        call, so they are not refetched from Status Backend on every access.
         """
-        if not self.__members:
-            raise exceptions.GroupChatNotFoundError()
-        return self.__members
+        members = {}
+        chat = self.__get_group_info(self.id)
+        for member in chat["members"]:
+            response: dict = self.__account._call_rpc("messaging", "getContactByID", [member["id"]])
+            result = response["result"]
+            members[member["id"]] = {
+                "public_key": result["id"],
+                "url": self.__account._call_rpc("urls", "shareUserURLWithData", [result["id"]]).get("result"),
+                "display_name": result["displayName"],
+                "compressed_key": result["compressedKey"],
+                "admin": self.__extract_admin_public_key(self.id) == result["id"]
+            }
+        return members
 
     @property
     def is_admin(self) -> bool:
         """
         If `True` then the `Account` is the administrator of the group
         """
-        return self.__is_admin
+        chat = self.__get_group_info(self.id)
+        return self.__extract_admin_public_key(chat["id"]) == self.__account.info["public_key"]
 
     @property
     def name(self) -> str:
         """
         Get the current chat's name
         """
-        if not self.__name:
-            raise exceptions.GroupChatNotFoundError()
-        return self.__name
+        chat = self.__get_group_info(self.id)
+        return chat["name"]
 
     @name.setter
     def name(self, name: str):
-        if not self.__name:
-            raise exceptions.GroupChatNotFoundError()
         self.__validate_name(name)
-        previous_name = self.__name
-        new_name = name
-        self.__account.call_rpc("messaging", "changeGroupChatName", [self.id, name])
+        self.__account._call_rpc("messaging", "changeGroupChatName", [self.id, name])
         self.__account.signal.get("envelope.sent")
-        self.__name = name
-        self.__account.logger.info(f"Group chat named changed from '{previous_name}' to '{new_name}'")
 
     @property
     def id(self) -> str:
@@ -276,32 +258,6 @@ class GroupChat:
 
         return list(set(public_keys))
 
-    def __get_current_chat_members(self, chat: dict) -> dict[str, dict]:
-        """
-        Get the current chat members.
-
-        NOTE: This performs an additional RPC call for each member to fetch
-        profile details, so it can be slower for large Group Chats.
-
-        Parameters:
-            - `chat` - the raw chat from a Status Backend Group Chat RPC call
-
-        Output:
-            - the chat's members, mapped by their public key
-        """
-        members = {}
-        for member in chat["members"]:
-            response: dict = self.__account.call_rpc("messaging", "getContactByID", [member["id"]])
-            result = response["result"]
-            members[member["id"]] = {
-                "public_key": result["id"],
-                "url": self.__account.call_rpc("urls", "shareUserURLWithData", [result["id"]]).get("result"),
-                "display_name": result["displayName"],
-                "compressed_key": result["compressedKey"],
-                "admin": self.__extract_admin_public_key(self.id) == result["id"]
-            }
-        return members
-
     @property
     def available_slots(self) -> bool:
         return self.__TOTAL_MEMBERS - len(self.members)
@@ -332,13 +288,6 @@ class GroupChat:
 
         return True
 
-    def __chat_member_log(self):
-        """
-        Log the current number of members in the chat
-        """
-        total = len(self.members)
-        self.__account.logger.info(f"There {'is' if total == 1 else 'are'} {total} / {self.__TOTAL_MEMBERS} members in '{self.name}'.")
-
     def __action_log(self, public_keys: list[str], action: str):
         """
         Log how many members were affected by an `add` / `remove` action.
@@ -353,3 +302,22 @@ class GroupChat:
         preposition = "from" if action == "remove" else "to"
         total = len(public_keys)
         self.__account.logger.info(f"{past_tense} {total} contact{'s' if total != 1 else ''} {preposition} '{self.name}'")
+
+    def __get_group_info(self, chat_id: str) -> dict:
+        """
+        Fetch latest group information. Other chat members can also modify some group information.:
+            - Added / remove member
+            - Change group name
+
+        Parameters:
+            - `chat_id` - the current chat's ID
+
+        Output:
+            - Overall chat information
+        """
+        response: dict = self.__account._call_rpc("messaging", "confirmJoiningGroup", [chat_id])
+        if response.get("error"):
+            raise exceptions.GroupChatNotFoundError(f"Group Chat not found...\nChat ID: {chat_id}")
+
+        chat: dict = response["result"]["chats"][0]
+        return chat

@@ -8,7 +8,7 @@ A `GroupChat` is always bound to a logged-in [`Account`](./account.md). It can e
 
 ## Administrator
 
-The account that creates a group chat becomes its **administrator**. Only the administrator can [remove](./group-chat.md#removepublic_keys) members from the chat. Every member (admin or not) can [add](./group-chat.md#addpublic_keys) members, [send_message](./group-chat.md#send_messagemessage), [get messages](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone) and [leave](./group-chat.md#leave).
+The account that creates a group chat becomes its **administrator**. Only the administrator can [remove](./group-chat.md#removepublic_keys) members from the chat. Every member (admin or not) can [add](./group-chat.md#addpublic_keys) members, [send_message](./group-chat.md#send_messagemessage-reply_to_message_idnone), [get messages](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone) and [leave](./group-chat.md#leave).
 
 ## Group chat name
 
@@ -133,13 +133,14 @@ GroupChat(account).create(public_keys, "Status Bots").send_message("Hello!")
 
 **Note**: The account's **own public key** is automatically filtered out of `public_keys`, since the creator is always a member of the chat.
 
-### `send_message(message)`
+### `send_message(message, reply_to_message_id=None)`
 
-Send a text message to the group chat. This method currently supports **text messages only**.
+Send a text message to the group chat. This method currently supports **text messages only**. A message can also be sent as a **reply** to an existing message in the chat, which renders in Status App with the original message quoted above it - the same as replying to a message in the app.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `message` | `str` | Yes | The text message to send. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone). When omitted (default), the message is sent as a standalone message. |
 
 Returns the current `GroupChat` instance, allowing method chaining.
 
@@ -157,6 +158,28 @@ chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
 group_chat = GroupChat(account, chat["id"])\
                 .send_message("Hello from my Status bot #1!")\
                 .send_message("Hello from my Status bot #2!")
+```
+
+Reply to a message:
+
+```python
+from status_sdk import Account, GroupChat
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
+group_chat = GroupChat(account, chat["id"])
+
+# Messages are returned newest first, so this is the latest message in the chat
+messages = group_chat.get_messages()
+latest = messages[0]
+
+group_chat.send_message("Thanks for the update!", latest["id"])
 ```
 
 ### `delete_message(id)`
@@ -331,7 +354,7 @@ group_chat.leave()
 
 ### `id`
 
-The unique identifier of the group chat. This is the same value found in the [`chats`](./account.md#chats) property where `type` is `group_chat`, and it can be used directly with [`send_message`](./account.md#send_messagechat_id-message) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) on `Account`.
+The unique identifier of the group chat. This is the same value found in the [`chats`](./account.md#chats) property where `type` is `group_chat`, and it can be used directly with [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) on `Account`.
 
 Returns `str`. Raises a custom exception if the chat has not been created or joined.
 
@@ -420,8 +443,6 @@ group_chat = GroupChat(account, chat["id"])
 for member in group_chat.members.values():
     print(member["display_name"], member["admin"])
 ```
-
-**Note**: Members are **cached** from the last time the chat was [initialized](./group-chat.md#groupchataccount-chat_idnone), [created](./group-chat.md#createpublic_keys-name), [added to](./group-chat.md#addpublic_keys) or [removed](./group-chat.md#removepublic_keys) from.
 
 ### `available_slots`
 

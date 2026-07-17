@@ -97,7 +97,8 @@ class Account:
                 "create_backup": f"{self.__http_base_url}PerformLocalBackup",
                 "load_backup": f"{self.__http_base_url}LoadLocalBackup",
                 "rpc": f"{self.__http_base_url}CallRPC",
-                "transaction": f"{self.__http_base_url}SendTransactionV2"
+                "transaction": f"{self.__http_base_url}SendTransactionV2",
+                "sync_input_string": f"{self.__http_base_url}InputConnectionStringForBootstrappingV2",
             },
             "socket": {
                 "signals": f"{self.__ws_base_url}signals"
@@ -229,7 +230,7 @@ class Account:
             },
             "logged_in_timestamp": datetime.datetime.now()
         }
-        self.__info["url"] = self.__call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result")
+        self.__info["url"] = self._call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result")
         # Messenger can be activated only when logged in
         self.__start_messenger()
         if is_recovery:
@@ -303,7 +304,7 @@ class Account:
     @display_name.setter
     def display_name(self, name: str):
         self.__validate_display_name(name)
-        output = self.__call_rpc("messaging", "setDisplayName", [name])
+        output = self._call_rpc("messaging", "setDisplayName", [name])
         # It seems that if a valid name is given, it will be instantly updated
         # However after tracing the signals, an `envelope.sent` is sent a bit
         # after the name has been changed.
@@ -328,7 +329,7 @@ class Account:
         if len(bio) > CHARACTERS:
             raise exceptions.InvalidDisplayNameError(f"Bio cannot be longer than {CHARACTERS} characters...")
 
-        self.__call_rpc("messaging", "setBio", [bio])
+        self._call_rpc("messaging", "setBio", [bio])
         # It seems that if a valid bio is given, it will be instantly updated
         # However after tracing the signals, an `envelope.sent` is sent a bit
         # after the bio has been updated.
@@ -344,7 +345,7 @@ class Account:
         """
         Get current profile picture
         """
-        identity_images = self.__call_rpc("identity", "getIdentityImages", [self.info["key_uid"]])
+        identity_images = self._call_rpc("identity", "getIdentityImages", [self.info["key_uid"]])
         latest = max(identity_images.get("result", []), key=lambda item: item["clock"], default=None)
         if not latest:
             return None
@@ -392,7 +393,7 @@ class Account:
             *img.size
         ]
         self.logger.info(f"Setting {file_path} as profile picture")
-        self.__call_rpc("identity", "storeIdentityImage", params)
+        self._call_rpc("identity", "storeIdentityImage", params)
         self.logger.info(f"Profile picture has been updated!")
 
     @property
@@ -412,7 +413,7 @@ class Account:
             - sent request - when `contact_state` is `sent` and `external_contact_state` is `none`
             - received request - when `contact_state` is `received`
         """
-        data = self.__call_rpc("messaging", "contacts")
+        data = self._call_rpc("messaging", "contacts")
         raw: list[dict] = data.get("result", [])
         if not raw:
             return {}
@@ -422,7 +423,7 @@ class Account:
         contacts = {
             contact["id"]: {
                 "public_key": contact["id"],
-                "url": self.__call_rpc("urls", "shareUserURLWithData", [contact["id"]]).get("result"),
+                "url": self._call_rpc("urls", "shareUserURLWithData", [contact["id"]]).get("result"),
                 "chat_id": contact["id"],
                 "compressed_key": contact["compressedKey"],
                 "emojis": contact["emojiHash"],
@@ -459,7 +460,7 @@ class Account:
         - Current number of community members
         - Current channels' names, descriptions and permissions
         """
-        data = self.__call_rpc("messaging", "communities")
+        data = self._call_rpc("messaging", "communities")
         raw: list[dict] = data.get("result", [])
         if not raw:
             return []
@@ -468,7 +469,7 @@ class Account:
         communities = [
             {
                 "id": community["id"],
-                "url": self.__call_rpc("urls", "shareCommunityURLWithData", [community["id"]]).get("result"),
+                "url": self._call_rpc("urls", "shareCommunityURLWithData", [community["id"]]).get("result"),
                 "name": community["name"],
                 "verified": community["verified"],
                 "description": community["description"],
@@ -485,7 +486,7 @@ class Account:
                     {
                         "id": chat["id"],
                         "chat_id": community["id"] + chat["id"],
-                        "url": self.__call_rpc("urls", "shareCommunityChannelURLWithData", [community["id"], chat["id"]]).get("result"),
+                        "url": self._call_rpc("urls", "shareCommunityChannelURLWithData", [community["id"], chat["id"]]).get("result"),
                         "name": chat["name"],
                         "description": chat["description"],
                         "permissions": {
@@ -520,7 +521,7 @@ class Account:
         ]
 
         # Group chats in RPC endpoint are chat type 3
-        data = self.__call_rpc("messaging", "activeChats")
+        data = self._call_rpc("messaging", "activeChats")
         result: Optional[list[dict]] = data.get("result", [])
         if not result:
             result = []
@@ -544,7 +545,7 @@ class Account:
         if self.__chains:
             return self.__chains
 
-        result = self.__call_rpc("wallets", "getEthereumChains").get("result", [])
+        result = self._call_rpc("wallets", "getEthereumChains").get("result", [])
         key = "Prod"
         self.__chains = {chain[key]["chainId"]: chain[key]["chainName"] for chain in result if chain.get(key)}
         return self.__chains
@@ -557,7 +558,7 @@ class Account:
         empty = pd.DataFrame(columns=["timestamp", "address", "chain_id", "amount", "symbol"])
 
         params = [[self.info["wallet_address"]], True]
-        results = self.__call_rpc("wallets", "fetchOrGetCachedWalletBalances", params).get("result", {}).get(self.info["wallet_address"].lower(), [])
+        results = self._call_rpc("wallets", "fetchOrGetCachedWalletBalances", params).get("result", {}).get(self.info["wallet_address"].lower(), [])
         if not results:
             return empty.copy()
 
@@ -592,7 +593,7 @@ class Account:
         This can be useful for analyzing community membership, such as identifying
         suspicious profiles or filtering for genuine community members.
         """
-        data = self.__call_rpc("messaging", "communities")
+        data = self._call_rpc("messaging", "communities")
         raw: list[dict] = data.get("result", [])
 
         if not raw:
@@ -601,10 +602,10 @@ class Account:
         members = []
         for community in raw:
             for public_key, info in community.get("members", {}).items():
-                response: dict = self.__call_rpc("messaging", "getContactByID", [public_key])
+                response: dict = self._call_rpc("messaging", "getContactByID", [public_key])
                 result: dict = response.get("result") or {}
 
-                url = self.__call_rpc("urls", "shareUserURLWithData", [public_key]).get("result")
+                url = self._call_rpc("urls", "shareUserURLWithData", [public_key]).get("result")
 
                 members.append({
                     "community_id": community["id"],
@@ -647,7 +648,7 @@ class Account:
 
         balance = self.balance
         tokens = (balance["chain_id"].astype(str) + "-" + balance["address"]).to_list()
-        result = self.__call_rpc("wallets", "fetchPrices", [tokens, [ccy]]).get("result", {})
+        result = self._call_rpc("wallets", "fetchPrices", [tokens, [ccy]]).get("result", {})
         if result:
             rates = pd.DataFrame([
                 {
@@ -670,22 +671,26 @@ class Account:
 
         return balance.copy()
 
-    def send_message(self, chat_id: str, message: str):
+    def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None):
         """
         Send a message to the given chat.
 
         Parameters:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the message that will be sent. Currently only text messages are supported
+            - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
         """
         self.info
         params = [{
             "chatId": chat_id,
             "text": message,
             "contentType": 1, # Send message only. Future versions can have different message types (audio, image, etc.)
-            "responseTo": ""
+            "responseTo": reply_to_message_id if reply_to_message_id else ""
         }]
-        self.__call_rpc("messaging", "sendChatMessage", params)
+        response = self._call_rpc("messaging", "sendChatMessage", params)
+        error = response.get("error", {})
+        if error:
+            raise exceptions.InvalidContactError(error["message"])
 
     def delete_message(self, id: str) -> bool:
         """
@@ -698,7 +703,7 @@ class Account:
             - if `True` then the message was deleted. If `False` then the message was not deleted due to permissions.
         """
         self.info
-        response = self.__call_rpc("messaging", "deleteMessageAndSend", [id])
+        response = self._call_rpc("messaging", "deleteMessageAndSend", [id])
         error: dict = response.get("error", {})
         if error:
             self.logger.warning(f"Could not delete Message {id}... {error.get('message')}")
@@ -739,7 +744,7 @@ class Account:
 
         finished = False
         while not finished:
-            data = self.__call_rpc("messaging", "chatMessages", list(params.values()))
+            data = self._call_rpc("messaging", "chatMessages", list(params.values()))
             result: dict[str, Union[str, list[dict]]] = data.get("result", {})
             messages: Optional[list[dict]] = result.get("messages")
             cursor: Optional[str] = result.get("cursor")
@@ -799,7 +804,7 @@ class Account:
             raise exceptions.InvalidContactError(f"Cannot add contact {public_key}...\nPlease make sure you add display_name for contacts that you are sending friend requests to and have never interacted with before!")
 
         params = [{"id": public_key, "nickname": "", "displayName": display_name, "ensName": ""}]
-        self.__call_rpc("messaging", "addContact", params)
+        self._call_rpc("messaging", "addContact", params)
         return self
 
     def remove_contact(self, public_key: str) -> bool:
@@ -820,7 +825,7 @@ class Account:
         if contact_info["contact_state"] == "none":
             return False
         params = [public_key]
-        self.__call_rpc("messaging", "removeContact", params)
+        self._call_rpc("messaging", "removeContact", params)
         return True
 
     def send_request_community(self, url: str) -> Optional[datetime.datetime]:
@@ -833,12 +838,12 @@ class Account:
         Output:
             - the timestamp the request was sent
         """
-        data = self.__call_rpc("urls", "parseSharedURL", [url])
+        data = self._call_rpc("urls", "parseSharedURL", [url])
         raw: dict = data.get("result", {})
         community_key = raw["community"]["communityId"]
 
         params = [{"communityKey": community_key, "waitForResponse": True, "tryDatabase": True}]
-        data = self.__call_rpc("messaging", "fetchCommunity", params)
+        data = self._call_rpc("messaging", "fetchCommunity", params)
         raw: dict = data.get("result", {})
         community_id = raw["id"]
 
@@ -847,7 +852,7 @@ class Account:
             "addressesToReveal": [self.info["wallet_address"]],
             "airdropAddress": self.info["wallet_address"]
         }]
-        data = self.__call_rpc("messaging", "requestToJoinCommunity", params)
+        data = self._call_rpc("messaging", "requestToJoinCommunity", params)
         return datetime.datetime.fromtimestamp(raw.get("requestedToJoinAt", datetime.datetime.now().timestamp()))
 
     def backup(self) -> str:
@@ -886,7 +891,7 @@ class Account:
 
         columns = ["chainId", "address", "symbol", "decimals", "crossChainId"]
         info = []
-        result: list[dict] = self.__call_rpc("wallets", "getAllTokenLists").get("result", [])
+        result: list[dict] = self._call_rpc("wallets", "getAllTokenLists").get("result", [])
         for current in result:
             if len(current["tokens"]) == 0:
                 continue
@@ -951,7 +956,7 @@ class Account:
 
         tokens = self.__get_valid_tokens(chain_ids, token_addresses)
 
-        result: dict[str, dict[str, dict[str, str]]] = self.__call_rpc("wallets", "getBalancesByChain", [wallets, tokens]).get("result", {})
+        result: dict[str, dict[str, dict[str, str]]] = self._call_rpc("wallets", "getBalancesByChain", [wallets, tokens]).get("result", {})
         data = [
             {
                 "chain_id": int(chain_id),
@@ -985,7 +990,7 @@ class Account:
         if not ccy:
             return data.copy()
 
-        result = self.__call_rpc("wallets", "fetchPrices", [tokens, ccy]).get("result", {})
+        result = self._call_rpc("wallets", "fetchPrices", [tokens, ccy]).get("result", {})
         if not result:
             return data.copy()
 
@@ -1036,7 +1041,7 @@ class Account:
                 "currency": ccy,
                 **info
             }
-            for token_address, info in self.__call_rpc("wallets", "fetchMarketValues", [tokens, ccy]).get("result", {}).items()
+            for token_address, info in self._call_rpc("wallets", "fetchMarketValues", [tokens, ccy]).get("result", {}).items()
         ])
         market_info: pd.DataFrame = market_info.assign(
             timestamp = datetime.datetime.now(),
@@ -1216,7 +1221,7 @@ class Account:
             # (1) Get suggested routes
             self.signal.connect()
             with self.signal.expect("wallet.suggested.routes") as exp:
-                self.__call_rpc("wallets", "getSuggestedRoutesAsync", [params])
+                self._call_rpc("wallets", "getSuggestedRoutesAsync", [params])
 
             suggested_routes = exp.result
             error = suggested_routes["event"].get("ErrorResponse", {})
@@ -1227,7 +1232,7 @@ class Account:
             params = [suggested_routes["event"]["Uuid"]]
             # (2) Build transaction from Route
             with self.signal.expect("wallet.router.sign-transactions") as exp:
-                self.__call_rpc("wallets", "buildTransactionsFromRoute", params)
+                self._call_rpc("wallets", "buildTransactionsFromRoute", params)
 
             # (3) Sign transaction
             signed_transaction = exp.result
@@ -1235,7 +1240,7 @@ class Account:
             signatures = {}
             for hash in event["signingDetails"]["hashes"]:
                 params = [hash, self.info["wallet_address"], self.info["password"]]
-                sig = self.__call_rpc("wallets", "signMessage", params).get("result")
+                sig = self._call_rpc("wallets", "signMessage", params).get("result")
                 # Strip 0x
                 raw = sig[2:]
                 signatures[hash] = {
@@ -1247,7 +1252,7 @@ class Account:
             # (4) Send transaction
             with self.signal.expect("wallet.router.transactions-sent") as exp:
                 params = [{"uuid": transaction_uuid, "signatures": signatures}]
-                self.__call_rpc("wallets", "sendRouterTransactionsWithSignatures", params)
+                self._call_rpc("wallets", "sendRouterTransactionsWithSignatures", params)
 
             event: dict[str, dict] = exp.result["event"]
             # Usually just 1
@@ -1368,7 +1373,7 @@ class Account:
         if self.__is_messenger_launched:
             return
         self.logger.info("Starting messaging")
-        self.__call_rpc("messaging", "startMessenger")
+        self._call_rpc("messaging", "startMessenger")
         self.__signal.get("waku.connection.status.change")
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
@@ -1387,12 +1392,6 @@ class Account:
             self.__signal.close(None)
         except Exception:
             pass
-
-    def call_rpc(self, prefix: str, method_name: str, params: Optional[Union[list, dict]] = None) -> dict:
-        """
-        For faster development purposes. Used only for development.
-        """
-        return self.__call_rpc(prefix, method_name, params)
 
     def __load_backup(self):
         """
@@ -1426,7 +1425,7 @@ class Account:
         else:
             self.logger.warning(error)
 
-    def __call_rpc(self, prefix: str, method_name: str, params: Optional[Union[list, dict]] = None) -> dict:
+    def _call_rpc(self, prefix: str, method_name: str, params: Optional[Union[list, dict]] = None) -> dict:
         """
         Make RPC calls to Status Backend
 
@@ -1475,7 +1474,7 @@ class Account:
 
         self.__iso4217_ccy = [
             ccy.upper()
-            for ccy in self.__call_rpc("wallets", "getCachedCurrencyFormats").get("result", {}).keys()
+            for ccy in self._call_rpc("wallets", "getCachedCurrencyFormats").get("result", {}).keys()
             if len(ccy) == 3 and ccy.upper() != "XXX"
         ]
         return self.__iso4217_ccy

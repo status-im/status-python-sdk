@@ -300,14 +300,15 @@ print(f"Backup created at: {backup_path}")
 
 ### Chat
 
-#### `send_message(chat_id, message)`
+#### `send_message(chat_id, message, reply_to_message_id=None)`
 
-Send a text message to a specific chat. This method currently supports **text messages only**.
+Send a text message to a specific chat. This method currently supports **text messages only**. A message can also be sent as a **reply** to an existing message in the same chat, which renders in Status App with the original message quoted above it - the same as replying to a message in the app.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `chat_id` | `str` | Yes | Identifier of the chat where the message will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
 | `message` | `str` | Yes | The text message to send. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the message is sent as a standalone message. |
 
 ```python
 from status_sdk import Account
@@ -322,6 +323,31 @@ account.login(**params)
 # This is under the assumption you already have a contact / joined a community
 chat = account.chats[0]
 account.send_message(chat["id"], "Hello from my Status bot!")
+```
+
+Reply to a message:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+
+# Messages are returned newest first, so this is the latest message in the chat
+messages = account.get_messages(chat["id"])
+latest = messages[0]
+
+account.send_message(
+    chat_id=chat["id"],
+    message="Thanks for the update!",
+    reply_to_message_id=latest["id"]
+)
 ```
 
 #### `get_messages(chat_id, start_timestamp=None, end_timestamp=None)`
@@ -1339,7 +1365,7 @@ Each channel contains:
 | `description` | `str` | Channel description. |
 | `permissions` | `dict` | Permissions for the channel. |
 
-Channel `id` values can be used directly with [`send_message`](./account.md#send_messagechat_id-message)
+Channel `id` values can be used directly with [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone)
 
 Channel permissions:
 
@@ -1408,7 +1434,7 @@ Get all chats that the account can **send messages to**. This includes:
 - [`communities`](./account.md#communities) - community channels where the account has **posting permission**
 - Group chats that the account is in
 
-Returns `list[dict]` where each `dict` represents a chat that can be used with [`send_message`](./account.md#send_messagechat_id-message) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone).
+Returns `list[dict]` where each `dict` represents a chat that can be used with [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone).
 
 | Key | Type | Description |
 |----|----|-------------|
