@@ -39,7 +39,7 @@ Each tool is a thin wrapper around the [Python SDK](../../README.md). They are d
 | `search_external_balance` | [`get_balance`](../../docs/account.md#get_balancetoken_addresses-chain_ids1-walletsnone-ccynone) | Read the balance of **any** wallet address, not just the account's. |
 | `search_messages` | [`get_messages`](../../docs/account.md#get_messageschat_id-start_timestampnone-end_timestampnone) | Read chat history for a date range, including payment requests. |
 | `search_transactions` | [`get_transactions`](../../docs/account.md#get_transactionsrefreshfalse) | Read historical wallet transactions. |
-| `send_message` | [`send_message`](../../docs/account.md#send_messagechat_id-message) | **Send a message** to any chat. |
+| `send_message` | [`send_message`](../../docs/account.md#send_messagechat_id-message-reply_to_message_idnone) | **Send a message** to any chat. |
 | `send_transaction` | [`send_transaction`](../../docs/account.md#send_transactionaddress-symbol-amount-chain_id1) | **Send crypto** to any address. |
 | `swap_tokens` | [`swap_tokens`](../../docs/account.md#swap_tokensfrom_token-to_token-amount-chain_id1) | **Swap tokens** in the wallet. |
 

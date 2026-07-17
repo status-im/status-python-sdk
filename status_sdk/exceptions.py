@@ -20,6 +20,9 @@ class InvalidGroupChatNameError(ValueError):
 class GroupChatCreationError(Exception):
     pass
 
+class GroupChatAlreadyExistsError(Exception):
+    pass
+
 class GroupChatNotFoundError(Exception):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Please `create` the chat or initialize the class with `chat_id`")
