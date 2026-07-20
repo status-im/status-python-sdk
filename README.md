@@ -26,7 +26,6 @@ graph TB
 
 
    subgraph bot[status-im/status-python-sdk]
-        REQUIREMENTS[requirements.txt]
         GROUP_CHAT[class GroupChat]
         SDK[class Account]
         SIGNAL[class Signal]
