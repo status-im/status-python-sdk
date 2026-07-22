@@ -137,6 +137,10 @@ class GroupChat:
 
         params = [self.id, public_keys]
         response: dict = self.__account._call_rpc("messaging", "addMembersToGroupChat", params)
+        error = response.get("error", {})
+        if error:
+            raise exceptions.GroupChatMembersError(response["error"]["message"])
+
         self.__action_log(public_keys, "add")
         return self
 
