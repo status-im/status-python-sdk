@@ -1214,6 +1214,54 @@ account.profile_picture.show()
 
 When a new profile picture is set, any previous image in the **assets** folder is removed. The image is also copied into the Status Backend Docker volume so it is picked up by the backend when updating the account identity.
 
+### `status`
+
+Get or update the **presence status** of the currently logged‑in account. This is the same presence indicator shown next to the account in Status App, and it controls how the account appears to other users.
+
+Returns `str` when reading the property - one of the options below. After a successful [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), the status is automatically set to `on`.
+
+The value is **case‑insensitive** and must be one of the following options:
+
+| Option | Description |
+|-------|-------------|
+| `on` | **Always online**. The account is shown as online to other users. This is the default after login. |
+| `auto` | **Automatic**. Status App decides the presence automatically based on activity. |
+| `dnd` | **Do Not Disturb**. The account is shown as do not disturb. **This is experimental**. |
+| `off` | **Inactive**. The account is shown as offline / inactive to other users. |
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Read the current status
+print(account.status)
+```
+
+You can update the status by assigning a new value:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Update the presence status
+account.status = "off"
+print(account.status)
+```
+
+**Note**: Assigning any value other than `on`, `auto`, `dnd` or `off` raises a custom exception. The comparison is case‑insensitive, so `ON` and `on` are equivalent.
+
 ### `signal`
 
 The property exists in `Account` because signals require an **active logged‑in session**. Attempting to use signals before calling `login()` will raise an exception. Signals are low‑level events emitted by the Status Backend.
