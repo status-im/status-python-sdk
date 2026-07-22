@@ -290,8 +290,6 @@ class GroupChat:
         if not re.fullmatch(r"[A-Za-z0-9_. \t-]+", name):
             raise exceptions.InvalidGroupChatNameError("Group chat name can contain only letters, numbers, underscores (_), periods (.), whitespaces and hyphens (-).")
 
-        return True
-
     def __action_log(self, public_keys: list[str], action: str):
         """
         Log how many members were affected by an `add` / `remove` action.

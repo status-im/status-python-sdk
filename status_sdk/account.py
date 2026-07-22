@@ -34,7 +34,12 @@ class Account:
         "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
-
+    __status_types = {
+        "auto": 1,
+        "dnd": 2,
+        "on": 3,
+        "off": 4
+    }
     def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None):
         """
         Work with your own Status App account
@@ -104,6 +109,7 @@ class Account:
                 "signals": f"{self.__ws_base_url}signals"
             }
         }
+        self.__status = "on"
         self.__media_port = media_port
         self.__signal = Signal(self.__urls["socket"]["signals"])
         # Initialize profile
@@ -581,6 +587,23 @@ class Account:
 
         balance.insert(0, "timestamp", datetime.datetime.now())
         return balance.copy()
+
+    @property
+    def status(self) -> str:
+        """
+        Get the current active status of the account
+        """
+        return self.__status
+
+    @status.setter
+    def status(self, new_status: str):
+        selected = self.__status_types.get(new_status.lower())
+        if not selected:
+            raise exceptions.InvalidUserStatusError(f"Selected status '{selected}' is invalid... Available options: {' / '.join(self.__status_types.keys())}")
+
+        self.__status = new_status.lower()
+        self._call_rpc("messaging", "setUserStatus", [selected, ""])
+
 
     @property
     def community_members(self) -> pd.DataFrame:
@@ -1277,8 +1300,6 @@ class Account:
 
         return __swap_tokens(from_token, to_token, amount, chain_id)
 
-
-
     def get_transactions(self, refresh: bool = False) -> pd.DataFrame:
         """
         Get wallet transactions from all Alchemy chains.
@@ -1377,6 +1398,7 @@ class Account:
         self.__signal.get("waku.connection.status.change")
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
+        self.status = "on"
 
     def __del__(self):
         """
