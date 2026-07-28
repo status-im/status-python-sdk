@@ -84,9 +84,19 @@ When either `url` or `community_id` is provided, the constructor acts based on t
 
 Ban one or more members from the community. Banned members appear in [`banned_members` property](./community.md#banned_members). A custom exception is raised if none of the provided public keys belong to the community.
 
+Each member can be identified in three different ways, so you can pass whichever value you have at hand - the public key, the chat key as shown in Status App, or the profile link a user shares with you:
+
+| Format | Example | Where to find it |
+|-------|--------|-----------------|
+| **Public key** | `0x04ebcad...` | `public_key` in [`members`](./community.md#members) |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` in [`members`](./community.md#members), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | `url` in [`members`](./community.md#members), or **Share profile** in Status App |
+
+Every value is normalised into the public key with [`get_public_key`](./account.md#get_public_keyvalue) before it is matched against the community's members, so the formats can be **mixed within the same list**.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to ban. A single public key can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to ban. A single value can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
 | `delete_messages` | `bool` | No | When `True`, all messages sent by the banned members are also deleted. Defaults to `False`. |
 
 ```python
@@ -116,9 +126,11 @@ community.ban(member, delete_messages=True)
 
 Unban one or more previously banned members.
 
+Each member can be identified by their **public key**, **chat key** or **account URL**, and the formats can be mixed within the same list.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to unban. A single public key can be passed as a `str`. Banned members can be obtained from [`banned_members` properties](./community.md#banned_members). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to unban. A single value can be passed as a `str`. Banned members can be obtained from [`banned_members` properties](./community.md#banned_members). |
 
 ```python
 from status_sdk import Account, Community
@@ -147,9 +159,11 @@ community.unban(community.banned_members)
 
 Remove one or more members from the community. Unlike [`ban`](./community.md#banpublic_keys-delete_messagesfalse), a kicked member is **not** added to [`banned_members`](./community.md#banned_members) and can request to join again. A custom exception is raised if none of the provided public keys belong to the community.
 
+Each member can be identified by their **public key**, **chat key** or **account URL**, and the formats can be mixed within the same list.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to remove. A single public key can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
 
 ```python
 from status_sdk import Account, Community
@@ -463,7 +477,7 @@ community = Community(account, url=url)
 print(community.description)
 ```
 
-![Community Name](./images/community/desc.png)
+![Community Name](./images/community/edit-channel-description.png)
 
 ### `introduction`
 

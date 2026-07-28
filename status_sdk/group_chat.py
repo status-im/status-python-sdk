@@ -32,7 +32,7 @@ class GroupChat:
         Create a Group Chat from the given public keys.
 
         Parameters:
-            - `public_keys` - the public keys of the members to create the chat with. Public keys can be found in `contacts` in `Account`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs of the members to create the chat with. The formats can be mixed within the same list and can be found in `contacts` in `Account`
             - `name` - the name of the Group Chat. Must follow the Status App naming rules
 
         Output:
@@ -90,7 +90,7 @@ class GroupChat:
         Remove members from the Group Chat. Only the administrator of the chat can remove members.
 
         Parameters:
-            - `public_keys` - the public keys of the members to remove. Current members can be found in `self.members`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs of the members to remove. The formats can be mixed within the same list and can be found in `self.members`
 
         Output:
             - the `GroupChat` itself, so calls can be chained
@@ -119,7 +119,7 @@ class GroupChat:
         Add members to the Group Chat.
 
         Parameters:
-            - `public_keys` - the public keys of the members to add. Public keys can be found in `contacts` in `Account`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs of the members to add. The formats can be mixed within the same list and can be found in `contacts` in `Account`
 
         Output:
             - the `GroupChat` itself, so calls can be chained
@@ -241,7 +241,7 @@ class GroupChat:
         as the `Account` cannot add or remove itself from a Group Chat.
 
         Parameters:
-            - `public_keys` - a single public key or a list of public keys
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs. The formats can be mixed within the same list
 
         Output:
             - the unique public keys as a list, without the `Account`'s own public key
@@ -253,9 +253,9 @@ class GroupChat:
             public_keys = [public_keys]
 
         public_keys = [
-            public_key
+            self.__account.get_public_key(public_key)
             for public_key in public_keys
-            if public_key != self.__account.info["public_key"]
+            if public_key not in [self.__account.info["public_key"], self.__account.info["compressed_key"], self.__account.info["url"]]
         ]
         if len(public_keys) == 0:
             raise exceptions.PublicKeyError("No public keys were given to the method...")

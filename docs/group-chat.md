@@ -101,9 +101,19 @@ print(group_chat.name)
 
 Create a **new group chat** with the given members. The logged-in account becomes the [administrator](./group-chat.md#administrator) of the chat. **[Group chats can have up to 20 members.](https://status.app/help/messaging/create-a-group-chat)**
 
+Each member can be identified in three different ways, so you can pass whichever value you have at hand - the public key, the chat key as shown in Status App, or the profile link a user shares with you:
+
+| Format | Example | Where to find it |
+|-------|--------|-----------------|
+| **Public key** | `0x04ebcad...` | `public_key` in [`contacts`](./account.md#contacts) |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` in [`contacts`](./account.md#contacts), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | `url` in [`contacts`](./account.md#contacts), or **Share profile** in Status App |
+
+Every value is normalised into the public key with [`get_public_key`](./account.md#get_public_keyvalue), so the formats can be **mixed within the same list**.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to create the chat with. A single public key can be passed as a `str`. Public keys can be obtained from [mutual contacts](./account.md#contacts). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to create the chat with. A single value can be passed as a `str`. The members must be [mutual contacts](./account.md#contacts). |
 | `name` | `str` | Yes | The name of the group chat. Must follow the [group chat name](./group-chat.md#group-chat-name) rules. |
 
 Returns the current `GroupChat` instance, allowing method chaining.
@@ -128,10 +138,39 @@ print(group_chat.id)
 Because the method returns the instance, calls can be chained:
 
 ```python
+from status_sdk import Account, GroupChat
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+public_keys = [contact["public_key"] for contact in account.contacts.values() if contact["mutual"]]
 GroupChat(account).create(public_keys, "Status Bots").send_message("Hello!")
 ```
 
-**Note**: The account's **own public key** is automatically filtered out of `public_keys`, since the creator is always a member of the chat.
+The formats can also be mixed:
+
+```python
+from status_sdk import Account, GroupChat
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+members = [
+    "0x04ebcad...",
+    "zQ3shYSHp7...",
+    "https://status.app/u/..."
+]
+
+group_chat = GroupChat(account).create(members, "Status Bots")
+```
+
+**Note**: The account's **own public key** is automatically filtered out of `public_keys`, since the creator is always a member of the chat. This happens after the values are normalised, so it also works when your own account is passed as a chat key or account URL.
 
 ### `send_message(message, reply_to_message_id=None)`
 
@@ -255,9 +294,11 @@ for message in messages:
 
 Add members to the group chat.
 
+Just like [`create`](./group-chat.md#createpublic_keys-name), each member can be identified by their **public key**, **chat key** or **account URL**, and the formats can be mixed within the same list.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to add. A single public key can be passed as a `str`. Public keys can be obtained from the [`contacts`](./account.md#contacts) property. Public keys can be obtained from [mutual contacts](./account.md#contacts). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to add. A single value can be passed as a `str`. The members must be [mutual contacts](./account.md#contacts). |
 
 Returns the current `GroupChat` instance, allowing method chaining.
 
@@ -290,9 +331,11 @@ print(group_chat.members.keys())
 
 Remove members from the group chat. **Only the [administrator](./group-chat.md#administrator) of the chat can remove members.**
 
+Just like [`create`](./group-chat.md#createpublic_keys-name), each member can be identified by their **public key**, **chat key** or **account URL**, and the formats can be mixed within the same list. All three values are exposed in the [`members`](./group-chat.md#members) property as `public_key`, `compressed_key` and `url`.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to remove. A single public key can be passed as a `str`. Current members can be obtained from the [`members`](./group-chat.md#members) property. |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. The values must belong to current members of the chat, which can be obtained from the [`members`](./group-chat.md#members) property. |
 
 Returns the current `GroupChat` instance, allowing method chaining.
 

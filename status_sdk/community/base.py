@@ -75,11 +75,11 @@ class Community:
         Kick a member from the community.
 
         Parameters:
-            - `public_keys` - a single public key or a list of public keys to ban. Current members can be found in `members`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs to kick. The formats can be mixed within the same list. Current members can be found in `members`
         """
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
-            params = [self.id, public_key]
+            params = [self.id, self.__account.get_public_key(public_key)]
             self.__account._call_rpc("messaging", "removeUserFromCommunity", params)
 
     def ban(self, public_keys: Union[str, list[str]], delete_messages: bool = False):
@@ -87,12 +87,12 @@ class Community:
         Ban a member from the community. Banned members will appear in `banned_members`.
 
         Parameters:
-            - `public_keys` - a single public key or a list of public keys to ban. Current members can be found in `members`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs to ban. The formats can be mixed within the same list. Current members can be found in `members`
             - `delete_messages` - if `True`, all messages sent by the banned members are also deleted
         """
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
-            params = [{"communityId": self.id, "user": public_key, "deleteAllMessages": delete_messages}]
+            params = [{"communityId": self.id, "user": self.__account.get_public_key(public_key), "deleteAllMessages": delete_messages}]
             self.__account._call_rpc("messaging", "banUserFromCommunity", params)
 
     def unban(self, public_keys: Union[str, list[str]]):
@@ -100,7 +100,7 @@ class Community:
         Unban a member from the community. Banned members can be found in `banned_members`.
 
         Parameters:
-            - `public_keys` - a single public key or a list of public keys to unban. Banned members can be found in `banned_members`
+            - `public_keys` - a single value or a list of public keys / chat keys / account URLs to unban. The formats can be mixed within the same list. Banned members can be found in `banned_members`
         """
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
@@ -401,7 +401,7 @@ class Community:
         Verify if the given public keys exist in the community
 
         Parameters:
-            - `public_keys` - a single public key or a list of public keys
+            - `public_keys` - a single or a list of public keys / chat keys / URLs
 
         Output:
             - the provided public keys that exist in the community
@@ -409,7 +409,10 @@ class Community:
         if isinstance(public_keys, str):
             public_keys = [public_keys]
 
-        public_keys = pd.Series(public_keys).str.lower()
+        public_keys = pd.Series([
+            self.__account.get_public_key(public_key)
+            for public_key in public_keys
+        ]).str.lower()
         members = self.members
         query = members["public_key"].str.lower().isin(public_keys)
         if query.sum() > 0:

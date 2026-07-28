@@ -76,6 +76,14 @@ sequenceDiagram
 
 #### Install
 
+##### PyPI
+
+```
+pip install status-sdk
+```
+
+##### Locally
+
 Clone the repository and move into it:
 
 ```

@@ -104,6 +104,8 @@ class Account:
                 "rpc": f"{self.__http_base_url}CallRPC",
                 "transaction": f"{self.__http_base_url}SendTransactionV2",
                 "sync_input_string": f"{self.__http_base_url}InputConnectionStringForBootstrappingV2",
+                "compress_key": f"{self.__http_base_url}SerializeLegacyKey",
+                "uncompress_key": f"{self.__http_base_url}MultiformatDeserializePublicKeyV2",
             },
             "socket": {
                 "signals": f"{self.__ws_base_url}signals"
@@ -409,10 +411,10 @@ class Account:
         This includes contacts that have interacted with us. If a contact has removed us (or the bot has removed us)
 
         NOTE: We do not use internal state so we can get dynamic values such as:
-        - Is currently active
-        - Is currently blocked
-        - Current display name
-        - Current bio
+            - Is currently active
+            - Is currently blocked
+            - Current display name
+            - Current bio
 
         Terminology for Status contact requests:
             - approved - when both `contact_state` and `external_contact_state` are `mutual`
@@ -736,20 +738,17 @@ class Account:
         Send a contact request / approve a contact.
 
         Parameters:
-            - `public_key` - the contact's public key
+            - `public_key` - the contact's public key / chat key / URL
             - `display_name` - this field is required if the `public_key` does not appear in your contacts. This will set their display name (can be different from the one the other user has chosen)
         """
+        public_key = self.get_public_key(public_key)
+
         if public_key == self.info["public_key"]:
             return self
 
-        contacts = list(self.contacts.values())
         if not display_name:
-            for contact in contacts:
-                if public_key != contact["public_key"]:
-                    continue
-
-                display_name = contact["display_name"]
-                break
+            contacts = self.contacts
+            display_name = contacts.get(public_key, {}).get("display_name")
 
         if not display_name:
             raise exceptions.InvalidContactError(f"Cannot add contact {public_key}...\nPlease make sure you add display_name for contacts that you are sending friend requests to and have never interacted with before!")
@@ -763,12 +762,21 @@ class Account:
         Remove the contact / decline a contact request.
 
         Parameters:
-            - `public_key` - the contact's public key
+            - `public_key` - the contact's public key / chat key / URL
 
         Output:
             - If `True` the user has been removed. If `False` the user has not been removed (either not a contact or not a friend)
         """
-        contact_info = self.contacts.get(public_key, {})
+        contacts = self.contacts
+        public_key = self.get_public_key(public_key)
+        contact_info = contacts.get(public_key, {})
+        if not contact_info:
+            for current_key, current_contact in contacts.items():
+                if public_key != current_contact["compressed_key"]:
+                    continue
+                contact_info = current_contact
+                public_key = current_key
+                break
         # Cannot remove a contact that is not in your contact
         if not contact_info:
             return False
@@ -778,6 +786,62 @@ class Account:
         params = [public_key]
         self._call_rpc("messaging", "removeContact", params)
         return True
+
+    def get_public_key(self, value: str) -> str:
+        """
+        Extract the public key from the URL / Chat key.
+        If a URL is passed, it the contact key is converted to the public key.
+        If a contact key is passed, it is converted to the public key.
+
+        Parameters:
+            - `key` - contact key / public key / account URL
+
+        Output:
+            - Public key which is longer than the
+        """
+        def to_public_key(compressed_key: str) -> str:
+            """
+            Conver the compressed key that is in Status App to the actual public key
+
+            Parameters:
+                - `compressed_key` - the Chat key from Status App
+
+            Output:
+                - the public key
+            """
+            body = json.dumps({"key": compressed_key, "outBase": "f"})
+            public_key = requests.post(self.__urls["http"]["uncompress_key"], data=body).content.decode()
+            if "{" in public_key:
+                data = json.loads(public_key)
+                raise exceptions.PublicKeyError(data["error"])
+
+            return "0x" + public_key[5:]
+
+        self.info
+        if value.startswith("0x"):
+            return value
+
+        if value.startswith("zQ"):
+            return to_public_key(value)
+
+        if not value.startswith("http"):
+            raise exceptions.PublicKeyError(f"Invalid key {value}...\nPlease provide a public key (starts with `0x`), a chat key (starts with `zQ`) or an account URL (starts with `http`)!")
+
+        response = self._call_rpc("urls", "parseSharedURL", [value])
+        if response.get("error"):
+            raise exceptions.InvalidContactError(response["error"]["message"])
+
+        result: dict = response.get("result", {})
+        compressed_key: str = (result.get("contact") or {}).get("publicKey", "")
+        if len(compressed_key) > 0:
+            return to_public_key(compressed_key)
+
+        public_key = (result.get("community") or {}).get("communityId", "")
+
+        if len(public_key) == 0:
+            raise exceptions.InvalidContactError(f"Cannot extract a public key from {value}...\nPlease make sure that the URL is a Status account URL and not a community / channel one!")
+
+        return public_key
 
     def backup(self) -> str:
         """

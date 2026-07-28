@@ -78,6 +78,22 @@ flowchart LR
 Because the file name is derived from the account's key rather than from whoever wrote it, the same account always maps to the same `.bkp` file - so neither side needs to know which tool produced the backup.
 
 
+## Public keys
+
+Every Status account is identified by **one key**, but that key appears in three different forms depending on where you look at it.
+
+| Format | Example | What it is | Where to find it |
+|-------|--------|-----------|-----------------|
+| **Public key** | `0x04ebcad...` | The full, uncompressed key. This is what Status Backend works with internally, and what the SDK keys its data by. | `public_key` in [`info`](./account.md#info) / [`contacts`](./account.md#contacts) |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | The same key in its compressed form. This is the value Status App shows and what users copy when they share their chat key. | `compressed_key` in [`info`](./account.md#info) / [`contacts`](./account.md#contacts), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | A shareable profile link with the chat key embedded in it. This is what **Share profile** produces in Status App. | `url` in [`info`](./account.md#info) / [`contacts`](./account.md#contacts), or **Share profile** in Status App |
+
+Where a list is accepted, the formats can even be **mixed within the same list**, since each value is normalised on its own.
+
+![Community Settings](./images/account/public-keys.png)
+
+**Note**: An **account URL** (`https://status.app/u/...`) is not the same as a **community URL** (`https://status.app/c/...`). Community URLs identify a community and belong in the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor.
+
 ## Wallet
 
 Wallet features are optional and can be omitted if not required for your use case. They provide functionality equivalent to the **Wallet** and **Market** tabs.
@@ -425,7 +441,7 @@ account.send_message(chat["id"], "Oops, this was a mistake!")
 # Messages are returned newest first, so the message just sent is the first one
 messages = account.get_messages(chat["id"])
 deleted = account.delete_message(messages[0]["id"])
-account.logger.info(f"Deleted: {deleted}")
+print(f"Deleted: {deleted}")
 ```
 
 #### `listen_messages()`
@@ -467,9 +483,19 @@ Modes:
 - **Approve mode** - `has_added_us` is `True` and `added` is `False`
 - **Add mode** - `has_added_us` is `False`
 
+The contact can be identified in three different ways, so you can pass whichever value you have at hand - the public key, the chat key as shown in Status App, or the profile link a user shares with you:
+
+| Format | Example | Where to find it |
+|-------|--------|-----------------|
+| **Public key** | `0x04ebcad...` | `public_key` in [`contacts`](./account.md#contacts) / [`info`](./account.md#info) |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` in [`contacts`](./account.md#contacts) / [`info`](./account.md#info), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | `url` in [`contacts`](./account.md#contacts) / [`info`](./account.md#info), or **Share profile** in Status App |
+
+When an account URL is passed, the public key is resolved from it automatically before the contact request is sent, so the contact is always added with the same identity regardless of which format you used.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_key` | `str` | Yes | The contact's Status public key. |
+| `public_key` | `str` | Yes | The contact's Status **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`). |
 | `display_name` | `str` | Yes / No | Display name for the contact. If the contact already exists in [`contacts`](./account.md#contacts), the `display_name` parameter is optional and the existing name will be reused. If the contact has **never interacted with the bot before**, `display_name` must be provided so the contact can be created locally. |
 
 Returns the current `Account` instance, allowing method chaining.
@@ -487,7 +513,45 @@ account.login(**params)
 # Send a contact request
 account.add_contact(
     public_key="0x04ebcad...",
-    display_name="nickninov"
+    display_name="status-enjoyer"
+)
+```
+
+Add a contact with their **chat key**:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Send a contact request
+account.add_contact(
+    public_key="zQ3shYSHp7...",
+    display_name="status-enjoyer"
+)
+```
+
+Add a contact with their **account URL**:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Send a contact request
+account.add_contact(
+    public_key="https://status.app/u/...",
+    display_name="status-enjoyer"
 )
 ```
 
@@ -506,9 +570,19 @@ Modes:
 - **Remove** - `has_added_us` is `True` and `added` is `True`
 - **Reject mode** - `has_added_us` is `True`
 
+Just like [`add_contact`](./account.md#add_contactpublic_key-display_namenone), the contact can be identified in three different ways:
+
+| Format | Example | Key in [`contacts`](./account.md#contacts) |
+|-------|--------|-----------------|
+| **Public key** | `0x04ebcad...` | `public_key` |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` |
+| **Account URL** | `https://status.app/u/...` | `url` |
+
+Whichever format is used, the value is matched against [`contacts`](./account.md#contacts) - so it must belong to a user that has already interacted with the account.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_key` | `str` | Yes | The contact's Status public key. This value corresponds to the key used in [`contacts`](./account.md#contacts). |
+| `public_key` | `str` | Yes | The contact's Status **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`). All three values correspond to the ones exposed in [`contacts`](./account.md#contacts). |
 
 Returns `bool`.
 
@@ -534,6 +608,64 @@ contact = list(account.contacts.values())[0]
 removed = account.remove_contact(contact["public_key"])
 print(f"Removed: {removed}")
 ```
+
+#### `get_public_key(value)`
+
+Normalise any of the three account identifiers into a **public key** (`0x...`). This normalisation is used internally by the library as well, so methods that accept a contact identifier work the same regardless of which format is passed.
+
+The behaviour depends on the format of `value`:
+
+| Format | Example | Behaviour |
+|-------|--------|-----------|
+| **Public key** | `0x04ebcad...` | Returned as is - no backend call is made. |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | Uncompressed by Status Backend into the public key. |
+| **Account URL** | `https://status.app/u/...` | The chat key is parsed out of the URL and then uncompressed into the public key. |
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `value` | `str` | Yes | The **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`) to resolve. All three values correspond to the `public_key`, `compressed_key` and `url` keys in [`contacts`](./account.md#contacts) / [`info`](./account.md#info). |
+
+Returns `str` representing the account's **public key**, always prefixed with `0x`.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# All three return the same public key
+for key in ["public_key", "url", "compressed_key"]:
+    value = account.info[key]
+    print(f"\n{key}: {value}\nkey: {account.get_public_key(value)}\n")
+```
+
+Look up a contact when all you have is a shared profile link:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+public_key = account.get_public_key("https://status.app/u/...")
+# contacts are keyed by public key
+contact = account.contacts.get(public_key)
+if contact:
+    print(contact["display_name"], contact["contact_state"])
+```
+
+**Note**: An **exception will be raised** when:
+- `value` does not start with `0x`, `zQ` or `http` (`PublicKeyError`)
+- the chat key cannot be uncompressed by Status Backend (`PublicKeyError`)
+- the URL cannot be parsed, or it is a **community / channel URL** rather than an account URL (`InvalidContactError`)
 
 ### Wallet
 
@@ -1291,7 +1423,7 @@ from status_sdk import Account
 
 account = Account()
 
-account.logger.info("Starting Status bot")
+print("Starting Status bot")
 account.logger.warning("This is a warning")
 account.logger.error("Something went wrong")
 ```
@@ -1313,7 +1445,7 @@ The property always fetches the latest state directly from the Status Backend. T
   - `received` - request received from another account
   - `mutual` - both users have added each other
 
-Returns `dict[str, dict]` where the key is the contact's **public key**. This makes internal searching for account specific information faster.
+Returns `dict[str, dict]` where the key is the contact's **public key**. This makes internal searching for account specific information faster. If you only have a contact's **chat key** or **account URL**, pass it through [`get_public_key`](./account.md#get_public_keyvalue) to get the key used in this property.
 
 | Key | Type | Description |
 |----|----|-------------|
