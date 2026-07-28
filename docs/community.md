@@ -1,0 +1,1073 @@
+# Community
+
+![Community header image](./images/community/overview.webp)
+
+The community class lets you work with a [Status Community](https://status.app/help/communities) and its channels. A [`Community`](./community.md#communityaccount-community_idnone-urlnone) is always bound to a logged-in [`Account`](./account.md), and each of its channels is exposed as a [`Channel`](./community.md#channel).
+
+- [`Community`](./community.md#communityaccount-community_idnone-urlnone) - manages membership (members, join requests, bans) and the community's channels.
+- [`Channel`](./community.md#channel) - manages a single channel - its identity (name, description, emoji, colour) and messaging.
+
+You never construct a `Channel` directly. Instead you [create one](./community.md#create_channelname-description-emojinone-colournone-category_namenone) or fetch an existing one by name with [subscript access](./community.md#fetching-a-channel).
+
+## Membership
+
+
+As of now `Community` works with already created Status App communities. To get started, please read [**Create your community**](https://status.app/help/communities#create-your-community). A `Community` can be created two ways:
+
+- **By id** - wrap a community the account is **already a member of**, using its `community_id`.
+- **By invite URL** - pass a shared community `url`. 
+
+
+If the account is already a member, the community is ready to use. Otherwise a **join request is sent** and the instance is left unusable until an administrator accepts it (see [Joining a community](./community.md#joining-a-community)).
+
+Only members can read a community's state, and only privileged members (owner / admin / token master) can [ban](./community.md#banpublic_keys-delete_messagesfalse), [accept](./community.md#acceptpending_request_id) or manage channels.
+
+## `Community(account, community_id=None, url=None)`
+
+Create a `Community` instance bound to a **logged-in** [`Account`](./account.md). Provide **either** `community_id` **or** `url`.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `account` | `Account` | Yes | A **logged-in** [`Account`](./account.md). If the account is not logged in, a custom exception is raised. |
+| `community_id` | `str` | No* | The id of a community the account is **already a member of**. Community ids can be obtained from [`communities`](./account.md#communities) on `Account`. |
+| `url` | `str` | No* | A shared community invite URL. Used to join the community if the account is not already a member. See [Joining a community](./community.md#joining-a-community). |
+
+Wrap a community the account is already in:
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Community ids come from the account's communities
+community_id = account.communities[0]["id"]
+community = Community(account, community_id)
+
+print(community.id)
+```
+
+URL initialization:
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# Community ids come from the account's communities
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.id)
+```
+
+When either `url` or `community_id` is provided, the constructor acts based on the account's membership current status:
+
+- **Already a member** - the community is ready to use immediately.
+- **Not a member** - a **join request is sent** on your behalf (revealing the account's wallet address), and the instance is left unusable until an administrator [accepts](./community.md#acceptpending_request_id) it.
+- **Request pending** - a warning is logged and the instance is left unusable until the request is accepted.
+
+**Note**: While a request is pending or has just been sent, the community's [`id`](./community.md#id) is unset and accessing it raises a custom exception. Re-create the `Community` by id once the request has been accepted.
+
+## Methods
+
+### `ban(public_keys, delete_messages=False)`
+
+Ban one or more members from the community. Banned members appear in [`banned_members` property](./community.md#banned_members). A custom exception is raised if none of the provided public keys belong to the community.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to ban. A single public key can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+| `delete_messages` | `bool` | No | When `True`, all messages sent by the banned members are also deleted. Defaults to `False`. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+member = community.members["public_key"].iloc[0]
+community.ban(member, delete_messages=True)
+```
+
+![Community Settings](./images/community/settings.png)
+
+---
+
+![Ban member](./images/community/ban.png)
+
+### `unban(public_keys)`
+
+Unban one or more previously banned members.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to unban. A single public key can be passed as a `str`. Banned members can be obtained from [`banned_members` properties](./community.md#banned_members). |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+community.unban(community.banned_members)
+```
+
+![Community Settings](./images/community/settings.png)
+
+---
+
+![Unban member](./images/community/unban.png)
+
+
+### `kick(public_keys)`
+
+Remove one or more members from the community. Unlike [`ban`](./community.md#banpublic_keys-delete_messagesfalse), a kicked member is **not** added to [`banned_members`](./community.md#banned_members) and can request to join again. A custom exception is raised if none of the provided public keys belong to the community.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `public_keys` | `list[str]`<br>`str` | Yes | The public keys of the members to remove. A single public key can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+member = community.members["public_key"].iloc[0]
+community.kick(member)
+```
+
+![Community Settings](./images/community/settings.png)
+
+---
+
+![Kick member](./images/community/kick.png)
+
+### `accept(pending_request_id)`
+
+Accept a pending join request. Members waiting to be accepted are found in [`pending_members`](./community.md#pending_members). A custom exception is raised if `pending_request_id` is not a pending (or declined) join request.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `pending_request_id` | `str` | Yes | The `request_id` of a member from [`pending_members`](./community.md#pending_members). |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+for member in community.pending_members:
+    community.accept(member["request_id"])
+```
+
+![Community Settings](./images/community/settings.png)
+
+---
+
+![Community Request - Pending](./images/community/pending.png)
+
+### `decline(pending_request_id)`
+
+Decline a pending join request. Declined members appear in [`declined_members`](./community.md#declined_members).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `pending_request_id` | `str` | Yes | The `request_id` of a member from [`pending_members`](./community.md#pending_members). |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+member = community.pending_members[0]
+community.decline(member["request_id"])
+```
+
+![Community Settings](./images/community/settings.png)
+
+---
+
+![Community Request - Pending](./images/community/pending.png)
+
+### `leave()`
+
+Leave the community. After leaving, the `Community` instance can no longer be used - its [`id`](./community.md#id) is unset and accessing it raises a custom exception. Re-create the `Community` (by id or url) if you rejoin.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+community.leave()
+```
+
+### `create_channel(name, description, emoji=None, colour=None, category_name=None)`
+
+Create a new channel in the community. Returns the created [`Channel`](./community.md#channel). An unknown `category_name` is ignored and the channel is created without a category. Channel creation raises a custom exception if the backend rejects it.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `name` | `str` | Yes | The channel name. Must follow the [channel name](./community.md#channel-name) rules. |
+| `description` | `str` | Yes | The channel description. Must follow the [channel description](./community.md#channel-description) rules. |
+| `emoji` | `str` | No | A single emoji for the channel. When omitted, a random default emoji is chosen. See [channel emoji](./community.md#channel-emoji). |
+| `colour` | `str` | No | The channel colour as a hex code, e.g. `#4360DF`. When omitted, a random default colour is chosen. See [channel colour](./community.md#channel-colour). |
+| `category_name` | `str` | No | The name of an existing category (from [`categories`](./community.md#categories)) to place the channel under. When omitted, the channel is uncategorised. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community.create_channel(
+    name="announcements",
+    description="Community news and updates",
+    emoji="📢",
+    colour="#4360DF"
+)
+print(channel.id)
+```
+
+![Create Channel 1](./images/community/create-channel-1.png)
+
+---
+
+![Create Channel 2](./images/community/create-channel-2.png)
+
+### `delete_channel(channel_name)`
+
+Delete a channel by its name. Available channel names can be found in [`channels` property](./community.md#channels). A custom exception is raised if no channel with that name exists.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `channel_name` | `str` | Yes | The name of the channel to delete. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+community.delete_channel("announcements")
+```
+
+![Create Channel 2](./images/community/channel-delete.png)
+
+### Fetching a channel
+
+A `Channel` is retrieved by name with **subscript access** on the community. Available names come from [`channels` property](./community.md#channels).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `channel_name` | `str` | Yes | The name of the channel to fetch. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+channel.send_message("Hello from my Status bot!")
+```
+
+**Note**: A custom exception is raised if no channel with that name exists.
+
+### Counting members
+
+The total number of members in the community is obtained by passing the community to the built-in `len()`.
+
+Returns `int`. This is the same count as the number of rows in the [`members` property](./community.md#members), without building the `DataFrame`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(f"The community has {len(community)} members")
+```
+
+## Properties
+
+### `id`
+
+The unique identifier of the community.
+
+Returns `str`. Raises a custom exception if the community is not usable (for example while a join request is pending).
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.id)
+```
+
+### `url`
+
+The shareable invite URL of the community. This is the same URL that can be passed to the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor to join or wrap the community.
+
+Returns `str`, or `None` if the backend does not return one.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.url)
+```
+
+### `name`
+
+The community's name.
+
+Returns `str`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.name)
+```
+
+![Community Name](./images/community/name.png)
+
+### `description`
+
+The community's description.
+
+Returns `str`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.description)
+```
+
+![Community Name](./images/community/desc.png)
+
+### `introduction`
+
+The community's **introduction message** - the text shown to new members when they join.
+
+Returns `str`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.introduction)
+```
+
+![Community Intro Message](./images/community/intro-message.png)
+
+### `leave_message`
+
+The community's **leave message** - the text shown to members when they leave the community.
+
+Returns `str`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.leave_message)
+```
+
+![Community Leave Message](./images/community/leave-message.png)
+
+### `categories`
+
+The community's categories, keyed by **category name**.
+
+Returns `dict[str, dict]` where each key is a category name and the value contains:
+
+| Key | Type | Description |
+|----|----|-------------|
+| `id` | `str` | The category id. |
+| `position` | `int` | The category's position (ordering) in the community. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+for name, info in community.categories.items():
+    print(name, info["id"], info["position"])
+```
+
+### `members`
+
+The current members of the community.
+
+Returns `pd.DataFrame`. An empty `DataFrame` is returned when there are no members.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `public_key` | `str` | Public key that uniquely identifies the member. |
+| `chat_id` | `str` | Chat identifier used for direct messaging. |
+| `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
+| `emojis` | `str` | Emoji hash associated with the member identity. |
+| `display_name` | `str` | The member's display name. Members without one are shown as a short key + Status URL fragment. |
+| `alias` | `str` | The member's initial (generated) name. |
+| `roles` | `list[str]` | The member's [roles](./community.md#roles). |
+| `bio` | `str` | The member's profile bio. |
+| `url` | `str` | Shareable Status profile URL for the member. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+members = community.members
+print(members[["display_name", "roles"]].to_markdown(index=False))
+```
+
+![Community Members](./images/community/members.png)
+
+### `channels`
+
+High level information for every channel in the community.
+
+Returns `list[dict]`, one entry per channel.
+
+| Key | Type | Description |
+|----|----|-------------|
+| `id` | `str` | The channel id (within the community). |
+| `name` | `str` | The channel name. Use this with [subscript access](./community.md#fetching-a-channel) and [`delete_channel`](./community.md#delete_channelchannel_name). |
+| `category` | `str`<br>`None` | The id of the category the channel belongs to, or `None` if uncategorised. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+for channel in community.channels:
+    print(channel["name"], channel["category"])
+```
+
+![Community Channels](./images/community/channels.png)
+
+### `banned_members`
+
+The public keys of members currently banned from the community.
+
+Returns `list[str]`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.banned_members)
+```
+
+![Banned Community Members](./images/community/banned-members.png)
+
+### `pending_members`
+
+Members whose join request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id).
+
+Returns `list[dict]`, each entry containing:
+
+| Key | Type | Description |
+|----|----|-------------|
+| `public_key` | `str` | Public key of the requesting member. |
+| `request_id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+for member in community.pending_members:
+    print(member["public_key"], member["request_id"])
+```
+
+![Pending Community Members](./images/community/pending-members.png)
+
+### `declined_members`
+
+Members whose join request has been declined.
+
+Returns `list[dict]` in the same shape as [`pending_members`](./community.md#pending_members).
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.declined_members)
+```
+
+![Declined Community Members](./images/community/declined-members.png)
+
+# Channel
+
+A `Channel` represents a single channel inside a [`Community`](./community.md#community). **You never construct it directly**. Channels can be created with [Community `create_channel`](./community.md#create_channelname-description-emojinone-colournone-category_namenone) or by [subscript access](./community.md#fetching-a-channel).
+
+
+## Channel name
+
+The **channel name** identifies the channel. It is set when [creating a channel](./community.md#create_channelname-description-emojinone-colournone-category_namenone) and can be updated through the [`name` property](./community.md#name-1). Channel names must follow the validation rules enforced by the library and expected by the Status application. A valid channel name must satisfy all of the following conditions:
+
+- It may contain **letters (`A–Z`, `a–z`)**
+- It may contain **numbers (`0–9`)**
+- It may contain **underscores (`_`)**
+- It may contain **periods (`.`)**
+- It may contain **hyphens (`-`)**
+- **Whitespaces are replaced with hyphens (`-`)**
+- It must be **at least 1 character long**
+- It **cannot be more than 24 characters long**
+
+Characters such as punctuation, emojis, or other symbols are **not allowed**.
+
+### Valid examples
+
+```
+announcements
+general-chat
+dev.team-42
+SNT_PUMP
+9000
+```
+
+### Invalid examples
+
+| Example | Reason |
+|-------|--------|
+|  | Too short (minimum length is 1) |
+| `a-channel-name-longer-than-24-chars` | Too long (maximum length is 24) |
+| `bot!123` | Contains invalid character `!` |
+| `chan 🚀` | Contains an emoji |
+
+**Note**: Whitespaces are automatically replaced with hyphens, so `my cool channel` becomes `my-cool-channel`.
+
+## Channel description
+
+The **channel description** is the short text shown under the channel. It is set when [creating a channel](./community.md#create_channelname-description-emojinone-colournone-category_namenone) and can be updated through the [`description`](./community.md#description-1) property.
+
+A valid channel description must satisfy all of the following conditions:
+
+- It may contain **letters (`A–Z`, `a–z`)**
+- It may contain **numbers (`0–9`)**
+- It may contain **underscores (`_`)**
+- It may contain **periods (`.`)**
+- It may contain **hyphens (`-`)**
+- It may contain **whitespaces (` `)**
+- It must be **at least 1 character long**
+- It **cannot be more than 140 characters long**
+
+Characters such as punctuation, emojis, or other symbols are **not allowed**.
+
+### Valid examples
+
+```
+Community news and updates
+General discussion
+dev.team-42 planning
+```
+
+### Invalid examples
+
+| Example | Reason |
+|-------|--------|
+|  | Too short (minimum length is 1) |
+| `A description longer than one hundred and forty characters...` + more | Too long (maximum length is 140) |
+| `see the #general channel!` | Contains invalid character `!` |
+| `updates 🚀` | Contains an emoji |
+
+## Channel colour
+
+The **channel colour** is the accent colour of the channel. It can be set when [creating a channel](./community.md#create_channelname-description-emojinone-colournone-category_namenone) and updated through the [`colour`](./community.md#colour) property. When omitted at creation, a random default colour is chosen.
+
+A valid channel colour must be a **hex colour code** satisfying all of the following:
+
+- It must **start with a `#`**
+- It must be followed by **3 (`#RGB`) or 6 (`#RRGGBB`) hex digits**
+- Hex digits are **case-insensitive** (`0–9`, `a–f`, `A–F`)
+
+### Valid examples
+
+```
+#4360DF
+#FF7D46
+#7140fd
+#fff
+```
+
+### Invalid examples
+
+| Example | Reason |
+|-------|--------|
+| `4360DF` | Missing the leading `#` |
+| `#12` | Wrong number of digits (needs 3 or 6) |
+| `#GGGGGG` | Contains non-hex characters |
+| `blue` | Not a hex colour code |
+
+If a channel colour does not follow these rules, a custom exception will be raised.
+
+## Channel emoji
+
+The **channel emoji** is the icon shown next to the channel. It can be set when [creating a channel](./community.md#create_channelname-description-emojinone-colournone-category_namenone) and updated through the [`emoji`](./community.md#emoji) property. When omitted at creation, a random default emoji is chosen.
+
+A valid channel emoji must satisfy all of the following:
+
+- It must be a **single emoji**
+- **Skin tones, flags and Zero-Width Joiner (ZWJ) sequences are not supported**
+
+### Valid examples
+
+```
+📢
+🚀
+❤️
+⭐
+```
+
+### Invalid examples
+
+| Example | Reason |
+|-------|--------|
+| `AB` | Not an emoji |
+| `🎉🎉` | More than one emoji |
+| `👍🏽` | Uses a skin-tone modifier |
+| `🇬🇧` | Flag (multi-codepoint) |
+| `👨‍👩‍👧` | ZWJ sequence |
+
+## Methods
+
+### `send_message(message, reply_to_message_id=None)`
+
+Send a text message to the channel. Supports **text messages only**, optionally as a reply.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `message` | `str` | Yes | The text message to send. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to, from [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone). When omitted, the message is sent standalone. |
+
+Returns the current `Channel` instance, allowing method chaining.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+channel.send_message("Hello from my Status bot!")
+```
+
+### `get_messages(start_timestamp=None, end_timestamp=None)`
+
+Retrieve messages from the channel within an optional time range. Messages are returned in **descending order** (newest to oldest).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `start_timestamp` | `datetime.datetime` | No | The earliest timestamp to include. Messages older than this stop the fetch. |
+| `end_timestamp` | `datetime.datetime` | No | The latest timestamp to include. Messages newer than this are skipped. |
+
+Returns `list[dict]` of message objects. This delegates to [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) on `Account`.
+
+```python
+from status_sdk import Account, Community
+import datetime
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+messages = channel.get_messages(start_timestamp=datetime.datetime(2024, 1, 1))
+for message in messages:
+    print(f"{message['timestamp']}\t{message['text']}")
+```
+
+### `delete_message(id)`
+
+Delete a message from the channel. You can delete your own messages, and if you are an administrator you can delete other members' messages too.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `id` | `str` | Yes | The `id` of the message to delete, from [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone). |
+
+Returns `bool` - `True` if the message was deleted, `False` if the account did not have permission.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+messages = channel.get_messages()
+deleted = channel.delete_message(messages[0]["id"])
+print(f"Deleted: {deleted}")
+```
+
+## Properties
+
+### `id`
+
+The channel's unique identifier - the community id combined with the channel id. This is the value used with [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) on `Account`.
+
+Returns `str`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+print(channel.id)
+```
+
+### `can_post`
+
+Whether the logged-in account is allowed to post in the channel.
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+if channel.can_post:
+    channel.send_message("Hello!")
+```
+
+### `name`
+
+Get or update the channel's name. The name must follow the [channel name](./community.md#channel-name) validation.
+
+Returns `str` when reading.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+# Read
+print(channel.name)
+
+# Update
+channel.name = "general-chat"
+```
+
+![Community Edit Name](./images/community/edit-channel-name.png)
+
+### `description`
+
+Get or update the channel's description. The description must follow the [channel description](./community.md#channel-description) validation.
+
+Returns `str` when reading.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+channel.description = "General discussion"
+print(channel.description)
+```
+
+![Community Edit Name](./images/community/edit-channel-description.png)
+
+### `colour`
+
+Get or update the channel's colour. The colour must follow the [channel colour](./community.md#channel-colour) validation.
+
+Returns `str` when reading.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+channel.colour = "#7140FD"
+print(channel.colour)
+```
+
+![Community Edit Colour](./images/community/edit-channel-colour.png)
+
+### `emoji`
+
+Get or update the channel's emoji. The emoji must follow the [channel emoji](./community.md#channel-emoji) validation.
+
+Returns `str` when reading, or `None` if the channel has no emoji.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+channel.emoji = "🚀"
+print(channel.emoji)
+```
+
+![Community Edit Emoji](./images/community/edit-channel-emoji.png)

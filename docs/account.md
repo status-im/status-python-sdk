@@ -304,10 +304,12 @@ print(f"Backup created at: {backup_path}")
 
 Send a text message to a specific chat. This method currently supports **text messages only**. A message can also be sent as a **reply** to an existing message in the same chat, which renders in Status App with the original message quoted above it - the same as replying to a message in the app.
 
+A message can be **at most 2000 characters long**, matching the limit enforced by Status App. Sending a longer message raises a custom exception.
+
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `chat_id` | `str` | Yes | Identifier of the chat where the message will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
-| `message` | `str` | Yes | The text message to send. |
+| `message` | `str` | Yes | The text message to send. Cannot be longer than **2000 characters**. |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the message is sent as a standalone message. |
 
 ```python
@@ -531,33 +533,6 @@ contact = list(account.contacts.values())[0]
 
 removed = account.remove_contact(contact["public_key"])
 print(f"Removed: {removed}")
-```
-
-#### `send_request_community(url)`
-
-Send a request to join a community using its invitation URL. The method parses the shared Status community URL and submits a join request using the currently logged-in account. The account's [wallet address](./account.md#info) is provided to the community.
-
-**This method works with community invites instead of specific community channel ones. Method is currently unstable.**
-
-| Name | Type | Required | Description |
-|-----|-----|-----|-------------|
-| `url` | `str` | Yes | The shared Status community invitation URL. |
-
-Returns `datetime.datetime` representing when the join request was submitted.
-
-```python
-from status_sdk import Account
-
-account = Account()
-params = {
-    "name": "status-app-bot",
-    "password": "SNTPUMP"
-}
-account.login(**params)
-
-account.send_request_community(
-    "https://status.app/c/community-invite-link"
-)
 ```
 
 ### Wallet
@@ -1374,14 +1349,13 @@ for contact in contacts.values():
 
 #### `communities`
 
-Get all communities that the account is currently a member of. This property always fetches the **latest community state** directly from the Status Backend. This ensures dynamic values such as community metadata, members, and channel permissions are always up to date.
+Get all communities that the account is currently a member of. This property always fetches the **latest community state** directly from the Status Backend, so dynamic values such as community metadata and member count are always up to date.
 
 Each community contains information about:
 
-- community metadata (name, description, tags)
+- community metadata (name, tags)
 - membership status
 - number of members
-- available channels and their permissions
 
 Returns `list[dict]` where each element represents a community.
 
@@ -1391,38 +1365,13 @@ Returns `list[dict]` where each element represents a community.
 | `url` | `str` | The URL that can be shared with other users. |
 | `name` | `str` | Name of the community. |
 | `verified` | `bool` | Whether the community is verified. |
-| `description` | `str` | Community description. |
-| `dialog` | `str` | Intro message shown when joining the community. |
-| `leaving_message` | `str` | Message shown when leaving the community. |
 | `tags` | `list[str]` | Tags associated with the community. |
 | `is_member` | `bool` | Whether the account is currently a member of the community. |
+| `joined` | `bool` | Whether the account has joined the community. |
 | `joined_timestamp` | `datetime.datetime` | Timestamp when the account joined the community. |
 | `requested_timestamp` | `datetime.datetime` | Timestamp when the join request was submitted. |
 | `encrypted` | `bool` | Whether the community messaging is encrypted. |
 | `members` | `int` | Total number of community members. |
-| `channels` | `list[dict]` | List of channels available in the community. |
-
-Each channel contains:
-
-| Key | Type | Description |
-|----|----|-------------|
-| `id` | `str` | Channel identifier inside the community. |
-| `chat_id` | `str` | Combined community + channel ID used for sending messages. |
-| `url` | `str` | The URL that can be shared with other users. |
-| `name` | `str` | Channel name. |
-| `description` | `str` | Channel description. |
-| `permissions` | `dict` | Permissions for the channel. |
-
-Channel `id` values can be used directly with [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone)
-
-Channel permissions:
-
-| Key | Type | Description |
-|----|----|-------------|
-| `posting` | `bool` | Whether the account can post messages in the channel. |
-| `viewing` | `bool` | Whether the account can view messages in the channel. |
-| `reactions` | `bool` | Whether the account can react to messages. |
-| `token_gated` | `bool` | Whether the channel requires a token to participate. |
 
 ```python
 from status_sdk import Account
@@ -1436,44 +1385,8 @@ account.login(**params)
 
 for community in account.communities:
     print(community["name"], community["members"])
-
-    for channel in community["channels"]:
-        print(f"\t#{channel['name']} posting: {channel['permissions']['posting']}")
 ```
-
-#### `community_members`
-
-Get member information for all visible communities that the account is in. It can be useful to review community membership, identify suspicious profiles, or filter genuine community members. For each community member, an additional RPC call is made to fetch profile information such as `display_name`, `bio` and `url`. This can make the property slower for larger communities.
-
-Returns `pd.DataFrame`.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `community_id` | `str` | Unique identifier of the community. |
-| `community_name` | `str` | Name of the community that the member belongs to. |
-| `public_key` | `str` | Public key that uniquely identifies the community member. |
-| `chat_id` | `str` | Chat identifier used when sending messages. |
-| `display_name` | `str` | Current display name of the member. If unavailable, a fallback name is generated from the compressed key and Status URL. |
-| `url` | `str` | Shareable Status profile URL for the member. |
-| `bio` | `str` | Profile bio of the member, if available. |
-| `roles` | `list[int]` | Roles that the community member has. |
-| `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
-| `emoji_hash` | `str` | The member's compressed chat key as shown in Status App. |
-| `status_alias` | `str` | Initial display name of the member when the account was created. |
-
-```python
-from status_sdk import Account
-
-account = Account()
-params = {
-    "name": "status-app-bot",
-    "password": "SNTPUMP"
-}
-account.login(**params)
-
-members = account.community_members
-print(community_members.head().to_markdown(index=False))
-```
+**Note**: To work with a community's channels, members and settings, wrap its `id` in the [`Community`](./community.md) class - for example `Community(account, community["id"])`.
 
 #### `chats`
 

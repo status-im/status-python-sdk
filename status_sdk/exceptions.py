@@ -11,6 +11,28 @@ class WalletNotConfiguredError(Exception):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Cannot use this wallet method without setting `infura_token`, `alchemy_token` and `coingecko_api_key` when calling `login`.")
 
+class InvalidCommunityKeyError(ValueError):
+    pass
+
+class CommunityNotFoundError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Please initialize the class with a valid `community_id` / make sure that you have been accepted in the community to use the class...")
+
+class CommunityChannelNotFoundError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "The community channel was not found! The channel does not exist...")
+
+class CommunityMembersError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Please provide valid Public Keys from the community only...")
+
+class CommunityPendingMemberError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "The given request id is not a pending join request...")
+
+class CommunityChannelCreationError(Exception):
+    pass
+
 class InvalidUserStatusError(ValueError):
     pass
 
@@ -18,6 +40,18 @@ class InvalidDisplayNameError(ValueError):
     pass
 
 class InvalidGroupChatNameError(ValueError):
+    pass
+
+class InvalidCommunityChannelNameError(ValueError):
+    pass
+
+class InvalidCommunityChannelDescriptionError(ValueError):
+    pass
+
+class InvalidCommunityChannelColourError(ValueError):
+    pass
+
+class InvalidCommunityChannelEmojiError(ValueError):
     pass
 
 class GroupChatCreationError(Exception):
@@ -40,6 +74,10 @@ class PublicKeyError(Exception):
 class InvalidContactError(ValueError):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Please provide either a Key Unique Identifier (key_uid) or a Display Name / ENS (name)...")
+
+class MessageTooLongError(ValueError):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Message cannot be longer than 2000 characters...")
 
 class InvalidCurrencyError(Exception):
     pass

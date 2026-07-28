@@ -27,6 +27,8 @@ graph TB
 
    subgraph bot[status-im/status-python-sdk]
         GROUP_CHAT[class GroupChat]
+        COMMUNITY[class Community]
+        CHANNEL[class Channel]
         SDK[class Account]
         SIGNAL[class Signal]
     end
@@ -37,7 +39,9 @@ graph TB
         INFURA[Infura]
     end
 
-    GROUP_CHAT --> |logged in Account| SDK
+    COMMUNITY --> CHANNEL
+    COMMUNITY <--> |logged in Account| SDK
+    GROUP_CHAT <--> |logged in Account| SDK
     SDK --> SIGNAL
     SDK --> |Port 8080| RPC
     SDK --> |Port 8080| HTTP

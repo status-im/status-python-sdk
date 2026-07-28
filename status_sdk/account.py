@@ -478,32 +478,13 @@ class Account:
                 "url": self._call_rpc("urls", "shareCommunityURLWithData", [community["id"]]).get("result"),
                 "name": community["name"],
                 "verified": community["verified"],
-                "description": community["description"],
-                "dialog": community["introMessage"],
-                "leaving_message": community["outroMessage"],
                 "tags": community["tags"],
                 "is_member": community["isMember"],
                 "joined": community["verified"],
                 "joined_timestamp": to_datetime("joinedAt", community),
                 "requested_timestamp": to_datetime("requestedToJoinAt", community),
                 "encrypted": community["encrypted"],
-                "members": len(community["members"]),
-                "channels": [
-                    {
-                        "id": chat["id"],
-                        "chat_id": community["id"] + chat["id"],
-                        "url": self._call_rpc("urls", "shareCommunityChannelURLWithData", [community["id"], chat["id"]]).get("result"),
-                        "name": chat["name"],
-                        "description": chat["description"],
-                        "permissions": {
-                            "posting": chat["canPost"],
-                            "viewing": chat["canView"],
-                            "reactions": chat["canPostReactions"],
-                            "token_gated": chat["tokenGated"]
-                        }
-                    }
-                    for chat in community["chats"].values()
-                ]
+                "members": len(community["members"])
             }
             for community in raw
         ]
@@ -604,62 +585,6 @@ class Account:
         self.__status = new_status.lower()
         self._call_rpc("messaging", "setUserStatus", [selected, ""])
 
-
-    @property
-    def community_members(self) -> pd.DataFrame:
-        """
-        Get enriched member data for all visible communities that the account belongs to.
-
-        NOTE: This performs an additional RPC call for each member to fetch profile
-        details, so it can be slower for large communities.
-
-        This can be useful for analyzing community membership, such as identifying
-        suspicious profiles or filtering for genuine community members.
-        """
-        data = self._call_rpc("messaging", "communities")
-        raw: list[dict] = data.get("result", [])
-
-        if not raw:
-            return pd.DataFrame()
-
-        members = []
-        for community in raw:
-            for public_key, info in community.get("members", {}).items():
-                response: dict = self._call_rpc("messaging", "getContactByID", [public_key])
-                result: dict = response.get("result") or {}
-
-                url = self._call_rpc("urls", "shareUserURLWithData", [public_key]).get("result")
-
-                members.append({
-                    "community_id": community["id"],
-                    "community_name": community["name"],
-                    "public_key": public_key,
-                    "chat_id": public_key,
-                    "display_name": result.get("displayName"),
-                    "url": url,
-                    "bio": result.get("bio", ""),
-                    **info,
-                })
-
-        if not members:
-            return pd.DataFrame()
-
-        members = pd.DataFrame(members)
-        members.columns = [self.__camel_to_snake(column) for column in members.columns]
-
-        members = members.assign(
-            # Accounts with no display names are populated as they appear in the Status URL
-            display_name = members["display_name"].fillna(
-                members["compressed_key"].str[:3] + "..." + members["url"].str[-6:]
-            )
-        ).drop(["last_update_clock", "color_id"], axis=1)\
-        .rename(
-            # Initial display name of the account when it was created
-            columns={"alias": "status_alias"}
-        )
-
-        return members.copy()
-
     def __getitem__(self, key: str) -> pd.DataFrame:
         """
         Get the fiat currency balance
@@ -704,6 +629,9 @@ class Account:
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
         """
         self.info
+        if len(message) > 2_000:
+            raise exceptions.MessageTooLongError(f"Message cannot be longer than 2000 characters (got {len(message)})...")
+
         params = [{
             "chatId": chat_id,
             "text": message,
@@ -850,33 +778,6 @@ class Account:
         params = [public_key]
         self._call_rpc("messaging", "removeContact", params)
         return True
-
-    def send_request_community(self, url: str) -> Optional[datetime.datetime]:
-        """
-        Send a request to join a community
-
-        Parameters:
-            - `url` - the community's URL
-
-        Output:
-            - the timestamp the request was sent
-        """
-        data = self._call_rpc("urls", "parseSharedURL", [url])
-        raw: dict = data.get("result", {})
-        community_key = raw["community"]["communityId"]
-
-        params = [{"communityKey": community_key, "waitForResponse": True, "tryDatabase": True}]
-        data = self._call_rpc("messaging", "fetchCommunity", params)
-        raw: dict = data.get("result", {})
-        community_id = raw["id"]
-
-        params = [{
-            "communityId": community_id,
-            "addressesToReveal": [self.info["wallet_address"]],
-            "airdropAddress": self.info["wallet_address"]
-        }]
-        data = self._call_rpc("messaging", "requestToJoinCommunity", params)
-        return datetime.datetime.fromtimestamp(raw.get("requestedToJoinAt", datetime.datetime.now().timestamp()))
 
     def backup(self) -> str:
         """
@@ -1394,8 +1295,11 @@ class Account:
         if self.__is_messenger_launched:
             return
         self.logger.info("Starting messaging")
-        self._call_rpc("messaging", "startMessenger")
-        self.__signal.get("waku.connection.status.change")
+        self.signal.connect()
+        with self.signal.expect("waku.connection.status.change", timeout=60) as exp:
+            self._call_rpc("messaging", "startMessenger")
+
+        self.signal.disconnect()
         self.__is_messenger_launched = True
         self.logger.info("Messaging launched")
         self.status = "on"
@@ -1477,7 +1381,6 @@ class Account:
         }
         if params:
             data["params"] = params
-
         response = requests.get(self.__urls["http"]["rpc"], json=data)
         return response.json()
 
@@ -1534,7 +1437,7 @@ class Account:
         s2 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1)
         return s2.lower()
 
-    def __validate_display_name(self, name: str) -> bool:
+    def __validate_display_name(self, name: str):
         """
         Validate the display name based on Status App rules.
         Validation most probably is dealt with on the GUI side
@@ -1562,5 +1465,3 @@ class Account:
 
         if not re.fullmatch(r"[A-Za-z0-9 _-]+", name):
             raise exceptions.InvalidDisplayNameError("Display name can contain only A-Z, 0-9, hyphens (-), underscores (_) and spaces.")
-
-        return True
