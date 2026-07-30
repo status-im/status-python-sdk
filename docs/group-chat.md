@@ -181,7 +181,7 @@ Send a text message to the group chat. This method currently supports **text mes
 | `message` | `str` | Yes | The text message to send. |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone). When omitted (default), the message is sent as a standalone message. |
 
-Returns the current `GroupChat` instance, allowing method chaining.
+Returns `str` - the `id` of the message that was just sent, delegated from [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) on `Account`. It is the same identifier that appears under the `id` key in [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./group-chat.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message, without having to fetch the chat's messages first.
 
 ```python
 from status_sdk import Account, GroupChat
@@ -194,9 +194,11 @@ params = {
 account.login(**params)
 
 chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
-group_chat = GroupChat(account, chat["id"])\
-                .send_message("Hello from my Status bot #1!")\
-                .send_message("Hello from my Status bot #2!")
+group_chat = GroupChat(account, chat["id"])
+
+first_id = group_chat.send_message("Hello from my Status bot #1!")
+# Reply to the message that was just sent, without fetching the chat's messages
+second_id = group_chat.send_message("Hello from my Status bot #2!", first_id)
 ```
 
 Reply to a message:
@@ -227,7 +229,7 @@ Delete one of your **own** messages from the group chat. The deletion is propaga
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `id` | `str` | Yes | The `id` of the message to delete. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone). |
+| `id` | `str` | Yes | The `id` of the message to delete. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), or directly from the return value of [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone). |
 
 Returns `bool`.
 
@@ -249,12 +251,10 @@ account.login(**params)
 chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
 group_chat = GroupChat(account, chat["id"])
 
-group_chat.send_message("Oops, this was a mistake!")
+message_id = group_chat.send_message("Oops, this was a mistake!")
 
-# Messages are returned newest first, so the message just sent is the first one
-messages = group_chat.get_messages()
-deleted = group_chat.delete_message(messages[0]["id"])
-account.logger.info(f"Deleted: {deleted}")
+deleted = group_chat.delete_message(message_id)
+print(f"Deleted: {deleted}")
 ```
 
 ### `get_messages(start_timestamp=None, end_timestamp=None)`
@@ -506,7 +506,7 @@ account.login(**params)
 chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
 group_chat = GroupChat(account, chat["id"])
 
-account.logger.info(f"{group_chat.available_slots} slots left")
+print(f"{group_chat.available_slots} slots left")
 ```
 
 This is useful to check before adding members, since the group chat is full when there are no slots left:
@@ -539,5 +539,5 @@ chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
 group_chat = GroupChat(account, chat["id"])
 
 if group_chat.is_admin:
-    account.logger.info("Account is admin!")
+    print("Account is admin!")
 ```

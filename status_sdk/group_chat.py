@@ -56,7 +56,7 @@ class GroupChat:
         self.__account.logger.info(f"Created group chat {name} [{self.id}]")
         return self
 
-    def send_message(self, message: str, reply_to_message_id: Optional[str] = None):
+    def send_message(self, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send a message to the group chat.
 
@@ -65,10 +65,10 @@ class GroupChat:
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
 
         Output:
-            - the `GroupChat` itself, so calls can be chained
+            - The message ID
         """
-        self.__account.send_message(self.id, message, reply_to_message_id)
-        return self
+        return self.__account.send_message(self.id, message, reply_to_message_id)
+
 
     def get_messages(self, start_timestamp: Optional[datetime.datetime] = None, end_timestamp: Optional[datetime.datetime] = None) -> list[dict]:
         """

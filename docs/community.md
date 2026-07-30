@@ -845,7 +845,7 @@ Send a text message to the channel. Supports **text messages only**, optionally 
 | `message` | `str` | Yes | The text message to send. |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to, from [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone). When omitted, the message is sent standalone. |
 
-Returns the current `Channel` instance, allowing method chaining.
+Returns `str` - the `id` of the message that was just sent, delegated from [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) on `Account`. It is the same identifier that appears under the `id` key in [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./community.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message, without having to fetch the channel's messages first.
 
 ```python
 from status_sdk import Account, Community
@@ -861,7 +861,8 @@ url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X
 community = Community(account, url=url)
 
 channel = community["general"]
-channel.send_message("Hello from my Status bot!")
+message_id = channel.send_message("Hello from my Status bot!")
+print(f"Sent message: {message_id}")
 ```
 
 ### `get_messages(start_timestamp=None, end_timestamp=None)`
@@ -902,7 +903,7 @@ Delete a message from the channel. You can delete your own messages, and if you 
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `id` | `str` | Yes | The `id` of the message to delete, from [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone). |
+| `id` | `str` | Yes | The `id` of the message to delete, from [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone) or directly from the return value of [`send_message`](./community.md#send_messagemessage-reply_to_message_idnone). |
 
 Returns `bool` - `True` if the message was deleted, `False` if the account did not have permission.
 

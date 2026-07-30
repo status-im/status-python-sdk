@@ -621,7 +621,7 @@ class Account:
 
         return balance.copy()
 
-    def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None):
+    def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send a message to the given chat.
 
@@ -629,6 +629,9 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the message that will be sent. Currently only text messages are supported
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
+
+        Output:
+            - The message ID
         """
         self.info
         if len(message) > 2_000:
@@ -644,6 +647,8 @@ class Account:
         error = response.get("error", {})
         if error:
             raise exceptions.InvalidContactError(error["message"])
+
+        return response["result"]["messages"][0]["id"]
 
     def delete_message(self, id: str) -> bool:
         """

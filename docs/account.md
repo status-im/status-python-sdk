@@ -328,6 +328,8 @@ A message can be **at most 2000 characters long**, matching the limit enforced b
 | `message` | `str` | Yes | The text message to send. Cannot be longer than **2000 characters**. |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the message is sent as a standalone message. |
 
+Returns `str` - the `id` of the message that was just sent. It is the same identifier that appears under the `id` key in [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message, without having to fetch the chat's messages first.
+
 ```python
 from status_sdk import Account
 
@@ -340,7 +342,8 @@ account.login(**params)
 
 # This is under the assumption you already have a contact / joined a community
 chat = account.chats[0]
-account.send_message(chat["id"], "Hello from my Status bot!")
+message_id = account.send_message(chat["id"], "Hello from my Status bot!")
+print(f"Sent message: {message_id}")
 ```
 
 Reply to a message:
@@ -416,7 +419,7 @@ You can only delete messages that the logged-in account has sent. Messages sent 
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `id` | `str` | Yes | The `id` of the message to delete. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone). |
+| `id` | `str` | Yes | The `id` of the message to delete. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone). |
 
 Returns `bool`.
 
@@ -436,11 +439,9 @@ params = {
 account.login(**params)
 
 chat = account.chats[0]
-account.send_message(chat["id"], "Oops, this was a mistake!")
+message_id = account.send_message(chat["id"], "Oops, this was a mistake!")
 
-# Messages are returned newest first, so the message just sent is the first one
-messages = account.get_messages(chat["id"])
-deleted = account.delete_message(messages[0]["id"])
+deleted = account.delete_message(message_id)
 print(f"Deleted: {deleted}")
 ```
 

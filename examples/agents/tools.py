@@ -221,12 +221,12 @@ class SearchTransactionsTool(StatusBaseTool):
 class SendMessagesTool(StatusBaseTool):
 
     name: str = "send_message"
-    description: str = "Send a message to the specified chat IT"
+    description: str = "Send a message to the specified chat ID"
     args_schema: Type[BaseModel] = models.MessageInput
 
     def _run(self, chat_id: str, message: Optional[str], start_date: Optional[models.DateStr], end_date: Optional[models.DateStr]) -> str:
-        self.account.send_message(chat_id, message)
-        return f"Message was sent successfully in chat ID {chat_id}!"
+        message_id = self.account.send_message(chat_id, message)
+        return f"Message [{message_id}] was sent successfully in chat ID {chat_id}!"
 
 
 class SendTransactionTool(StatusBaseTool):
