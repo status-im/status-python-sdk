@@ -92,6 +92,9 @@ class InvalidTokenError(Exception):
 class BackupError(Exception):
     pass
 
+class DeviceSyncError(Exception):
+    pass
+
 class ProfilePictureError(Exception):
     pass
 

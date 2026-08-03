@@ -28,7 +28,8 @@ class Account:
         "urls": "sharedurls",
         "wallets": "wallet",
         "account": "accounts",
-        "identity": "multiaccounts"
+        "identity": "multiaccounts",
+        "settings": "settings"
     }
     __keccak256_selectors = {
         "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
@@ -40,6 +41,7 @@ class Account:
         "on": 3,
         "off": 4
     }
+    __INSTALLATION_NAME = "python-sdk"
     def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None):
         """
         Work with your own Status App account
@@ -236,9 +238,12 @@ class Account:
                 "preferred_name": event.get("preferred-name"),
                 "usernames": ens_info
             },
+            "installation_id": None,
             "logged_in_timestamp": datetime.datetime.now()
         }
         self.__info["url"] = self._call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result")
+        result = self._call_rpc("settings", "getSettings").get("result") or {}
+        self.__info["installation_id"] = result.get("installation-id")
         # Messenger can be activated only when logged in
         self.__start_messenger()
         if is_recovery:
@@ -246,6 +251,14 @@ class Account:
             self.display_name = event["display-name"]
             self.logger.info("Successfully updated display name!")
             self.__load_backup()
+
+        if self.__info["installation_id"]:
+            self._call_rpc("messaging", "setInstallationName", [self.__info["installation_id"], self.__INSTALLATION_NAME])
+
+        for sync_info in self._call_rpc("messaging", "getOurInstallations").get("result") or []:
+
+            if not sync_info["enabled"]:
+                self._call_rpc("messaging", "deleteInstallation", [sync_info["id"]])
 
         return self
 
@@ -1370,6 +1383,51 @@ class Account:
 
         self.__transactions = final.copy()
         return self.__transactions.copy()
+
+    def sync(self, installation_id: str, name: Optional[str] = None):
+        """
+        Pair another device (installation) with the account, so accounts are synced.
+        Both devices must be logged in to the same Status account for the installation
+        to be known to the backend.
+
+        Parameters:
+            - `installation_id` - the id of the device to pair with.
+            - `name` - the name of the paired device.
+        """
+        if installation_id == self.info["installation_id"]:
+            return
+
+        params = [{"installationId": installation_id}]
+        output = self._call_rpc("messaging", "enableInstallationAndPair", params)
+        error = (output.get("error") or {}).get("message", "")
+        if error:
+            raise exceptions.DeviceSyncError(f"Could not sync with installation '{installation_id}' - {error}")
+
+        if not name:
+            return
+
+        params = [installation_id, {"name": name}]
+        output = self._call_rpc("messaging", "setInstallationMetadata", params)
+        error = (output.get("error") or {}).get("message", "")
+        # The device is already paired at this point, so a failed rename is not worth failing the sync over
+        if error:
+            self.logger.warning(f"Synced with installation '{installation_id}' but could not name it - {error}")
+
+    def unsync(self, installation_id: str):
+        """
+        Stop syncing with a device (installation) that was paired with `sync`.
+        The device can be paired again with `sync`.
+
+        Parameters:
+            - `installation_id` - the id of the device to stop syncing with. The account's own id is under `installation_id` in `info`
+        """
+        if installation_id == self.info["installation_id"]:
+            return
+
+        output = self._call_rpc("messaging", "disableInstallation", [installation_id])
+        error = (output.get("error") or {}).get("message", "")
+        if error:
+            raise exceptions.DeviceSyncError(f"Could not unsync from installation '{installation_id}' - {error}")
 
     def __start_messenger(self):
         """

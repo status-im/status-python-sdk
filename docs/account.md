@@ -100,6 +100,20 @@ Wallet features are optional and can be omitted if not required for your use cas
 
 ![Status App Wallet](./images/account/wallet.png)
 
+## Installation ID
+
+Currently installation IDs can be found in **Debug Mode** only. To turn **Debug Mode**:
+
+![Status App Debug Mode](./images/account/debug-mode.png)
+
+Once **Debug Mode** is turned on and Status App is restarted, you can go to **Syncing** tab.
+
+![Status App Sync 1](./images/account/syncing-1.png)
+
+The **Installation ID** should be used when calling [`sync`](./account.md#syncinstallation_id-namenone) and [`unsync`](./account.md#unsyncinstallation_id).
+
+![Status App Sync 2](./images/account/syncing-2.png)
+
 ## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None, volume_folder=None)`
 
 Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `backend_port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
@@ -313,6 +327,60 @@ account.login(**params)
 backup_path = account.backup()
 print(f"Backup created at: {backup_path}")
 ```
+
+### `sync(installation_id, name=None)`
+
+Pair another **device** with the account, so messages, contacts and settings are synced between them. This is the SDK equivalent of **Sync new device** in Status App - useful for running a remotely while keeping the same account on a phone or desktop. 
+
+Each device that logs into an account is registered with the backend as an **installation**, identified by an `installation_id`. A device reports its own id under `installation_id` in [`info`](./account.md#info), so pairing means passing the **other** device's id to this method. Both devices must have logged in to the same Status account for the installation to be known to the backend.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `installation_id` | `str` | Yes | The id of the device to pair with. It is the value that device reports under `installation_id` in its own [`info`](./account.md#info). |
+| `name` | `str` | No | The name of the paired device, so it is easier to recognise locally. When omitted, the device keeps whatever name it already has. |
+
+Returns `None`. Passing the logged-in account's **own** `installation_id` is a **no-op**, so a device can safely loop over a list of ids without filtering itself out first.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# The id the other device reports under `installation_id` in its own `info`
+account.sync("6a2f9c1e-...", "raspberry-pi")
+```
+
+**Note**: [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) **deletes** every installation that is not enabled. A device that was never synced, or that was [unsynced](./account.md#unsyncinstallation_id), is therefore removed on the next login and has to be re-registered by logging in from that device again.
+
+### `unsync(installation_id)`
+
+Stop syncing with a device that was paired with [`sync`](./account.md#syncinstallation_id-namenone). The device stops receiving the account's messages, contacts and settings.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `installation_id` | `str` | Yes | The id of the device to stop syncing with, in the same format accepted by [`sync`](./account.md#syncinstallation_id-namenone). |
+
+Returns `None`. As with [`sync`](./account.md#syncinstallation_id-namenone), passing the account's **own** `installation_id` is a **no-op** - an account cannot unsync itself. A custom exception is raised if the backend rejects the call.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+account.unsync("6a2f9c1e-...")
+```
+
+**Note**: unsyncing only **disables** the installation, so it can be paired again with [`sync`](./account.md#syncinstallation_id-namenone) within the same session. It does not survive a restart though - the next [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) deletes disabled installations, and the other device has to log in again before it can be synced.
 
 ### Chat
 
@@ -1172,6 +1240,7 @@ Provides information about the currently logged-in account. If `login()` has not
 | `password` | `str` | Password used to encrypt the account locally. |
 | `wallet_address` | `str` | Ethereum wallet address associated with the account. |
 | `ens` | `dict` | The account's [ENS](https://status.app/help/profile/transfer-your-ens-name-to-status) details. Contains `preferred_name` (`str` or `None`) - the ENS name the account has chosen to display - and `usernames` (`list[dict]`) - every ENS username registered to the account. Both are empty / `None` when no ENS name is set. |
+| `installation_id` | `str` | Id of **this** device's installation. Pass it to another device's [`sync`](./account.md#syncinstallation_id-namenone) to pair the two. `None` if the backend did not return one. |
 | `logged_in_timestamp` | `datetime.datetime` | Timestamp when the account successfully logged in. |
 
 ```python
