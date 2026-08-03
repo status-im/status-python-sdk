@@ -22,6 +22,19 @@ If the account is already a member, the community is ready to use. Otherwise a *
 
 Only members can read a community's state, and only privileged members (owner / admin / token master) can [ban](./community.md#banpublic_keys-delete_messagesfalse), [accept](./community.md#acceptpending_request_id) or manage channels.
 
+## Roles
+
+Every member carries one or more **roles**, returned by [`get_members`](./community.md#get_membersdataframefalse). The raw `dict` form exposes the backend's numeric codes, while the `DataFrame` form resolves them to the names below.
+
+| Code | Name | Description |
+|-----|-----|-------------|
+| `0` | `none` | A regular member. Can read and post, but cannot manage the community. |
+| `1` | `owner` | The community's owner. Full control over members, channels and settings. |
+| `4` | `admin` | Can manage members (ban, kick, accept, decline) and channels. |
+| `5` | `token_master` | Manages the community's tokens and token-gated permissions. |
+
+**Note**: the backend **omits** the `roles` key entirely for regular members - `0` / `none` is the fallback applied by the SDK, so it shows up in the `DataFrame` but never in the raw payload. Only the codes above are recognised; a member carrying any other code cannot be resolved by [`get_members(dataframe=True)`](./community.md#get_membersdataframefalse).
+
 ## `Community(account, community_id=None, url=None)`
 
 Create a `Community` instance bound to a **logged-in** [`Account`](./account.md). Provide **either** `community_id` **or** `url`.
@@ -80,6 +93,71 @@ When either `url` or `community_id` is provided, the constructor acts based on t
 
 ## Methods
 
+### `get_members(dataframe=False)`
+
+The current members of the community, returned in one of two shapes.
+
+By default a **raw `dict`** is returned as it comes back from the backend, keyed by public key. This costs a single call, so it is the shape to reach for in membership checks, lookups and bots where speed matters. Passing `dataframe=True` instead returns an enriched `pd.DataFrame` that resolves each member's contact details and profile URL - that costs **two additional calls per member**. It can be used for reporting and data pipelines rather than instant checks.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `dataframe` | `bool` | No | When `False` (the default), a raw `dict` keyed by public key is returned. When `True`, an enriched `pd.DataFrame` is returned. |
+
+#### Raw `dict` - `dataframe=False`
+
+Returns `dict[str, dict]`, keyed by the member's **public key**. An empty `dict` is returned when there are no members. Each value is the backend's member payload:
+
+| Key | Type | Description |
+|----|----|-------------|
+| `compressedKey` | `str` | The member's compressed chat key as shown in Status App. |
+| `emojiHash` | `list[str]` | The member's emoji identicon - a list of individual emojis, **not** a single string. Entries can be multi-codepoint (skin tones, ZWJ sequences), e.g. `🧑🏾‍✈️`. |
+| `alias` | `str` | The member's initial (generated) name, e.g. `Carefree Joyful Bushviper`. |
+| `colorId` | `int` | The id of the colour Status App assigns to the member's identicon. |
+| `last_update_clock` | `int` | The logical clock of the member's last update. |
+| `roles` | `list[int]` | The member's [role](./community.md#roles) codes - `1` owner, `4` admin, `5` token master. **Absent for regular members**, so read it with `member.get("roles", [0])`. |
+
+**Note**: this is the unmodified backend payload, so its keys are inconsistently cased (`compressedKey` next to `last_update_clock`), keys can be missing per member, and further keys may be present. The [`DataFrame`](./community.md#pddataframe---dataframetrue) form is the stable, documented shape.
+
+#### `pd.DataFrame` - `dataframe=True`
+
+Returns `pd.DataFrame`, one row per member. An empty `DataFrame` is returned when there are no members.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `public_key` | `str` | Public key that uniquely identifies the member. |
+| `chat_id` | `str` | Chat identifier used for direct messaging. |
+| `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
+| `emojis` | `list[str]` | The member's emoji identicon, passed through from `emojiHash` as a list of individual emojis. |
+| `display_name` | `str` | The member's display name. Members without one are shown as a short key + Status URL fragment. |
+| `alias` | `str` | The member's initial (generated) name. |
+| `roles` | `list[str]` | The member's [roles](./community.md#roles), resolved to their names. |
+| `bio` | `str` | The member's profile bio. |
+| `url` | `str` | Shareable Status profile URL for the member. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+# Raw dict - one call, keyed by public key
+for public_key, member in community.get_members().items():
+    print(public_key, member["alias"])
+
+# DataFrame - enriched, for data pipelines
+members = community.get_members(dataframe=True)
+print(members[["display_name", "roles"]].to_markdown(index=False))
+```
+
+![Community Members](./images/community/members.png)
+
 ### `ban(public_keys, delete_messages=False)`
 
 Ban one or more members from the community. Banned members appear in [`banned_members` property](./community.md#banned_members). A custom exception is raised if none of the provided public keys belong to the community.
@@ -88,15 +166,15 @@ Each member can be identified in three different ways, so you can pass whichever
 
 | Format | Example | Where to find it |
 |-------|--------|-----------------|
-| **Public key** | `0x04ebcad...` | `public_key` in [`members`](./community.md#members) |
-| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` in [`members`](./community.md#members), or the **chat key** in Status App |
-| **Account URL** | `https://status.app/u/...` | `url` in [`members`](./community.md#members), or **Share profile** in Status App |
+| **Public key** | `0x04ebcad...` | The keys of [`get_members()`](./community.md#get_membersdataframefalse), or `public_key` in its `DataFrame` form |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressedKey` in [`get_members()`](./community.md#get_membersdataframefalse), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | `url` in [`get_members(dataframe=True)`](./community.md#get_membersdataframefalse), or **Share profile** in Status App |
 
 Every value is normalised into the public key with [`get_public_key`](./account.md#get_public_keyvalue) before it is matched against the community's members, so the formats can be **mixed within the same list**.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to ban. A single value can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to ban. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersdataframefalse). |
 | `delete_messages` | `bool` | No | When `True`, all messages sent by the banned members are also deleted. Defaults to `False`. |
 
 ```python
@@ -112,7 +190,7 @@ account.login(**params)
 url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
 community = Community(account, url=url)
 
-member = community.members["public_key"].iloc[0]
+member = next(iter(community.get_members()))
 community.ban(member, delete_messages=True)
 ```
 
@@ -163,7 +241,7 @@ Each member can be identified by their **public key**, **chat key** or **account
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. Current members can be obtained from [`members` property](./community.md#members). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersdataframefalse). |
 
 ```python
 from status_sdk import Account, Community
@@ -178,7 +256,7 @@ account.login(**params)
 url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
 community = Community(account, url=url)
 
-member = community.members["public_key"].iloc[0]
+member = next(iter(community.get_members()))
 community.kick(member)
 ```
 
@@ -272,7 +350,7 @@ community.leave()
 
 ### `create_channel(name, description, emoji=None, colour=None, category_name=None)`
 
-Create a new channel in the community. Returns the created [`Channel`](./community.md#channel). An unknown `category_name` is ignored and the channel is created without a category. Channel creation raises a custom exception if the backend rejects it.
+Create a new channel in the community. Returns the created [`Channel`](./community.md#channel). An unknown `category_name` is ignored and the channel is created without a category. Channel creation raises a custom exception if the backend rejects it, and a separate one when a channel with that `name` **already exists** in the community - so a duplicate can be caught on its own and the existing channel [fetched](./community.md#fetching-a-channel) instead.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
@@ -336,6 +414,55 @@ community.delete_channel("announcements")
 
 ![Create Channel 2](./images/community/channel-delete.png)
 
+### `listen_requests()`
+
+Listen for join requests to the community **in real time**.
+
+Returns a `Generator` that yields one `dict` per request event:
+
+| Key | Type | Description |
+|----|----|-------------|
+| `request_id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
+| `state` | `str` | The state the request moved into - see the table below. |
+| `public_key` | `str` | Public key of the requesting member. |
+
+**Request states**
+
+| Code | State | Description |
+|-----|-----|-------------|
+| `1` | `pending` | The request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id). |
+| `2` | `reject` | The request was declined. |
+| `3` | `accept` | The request was accepted and the member joined. |
+| `4` | `cancel` | The request was cancelled. |
+
+Events belonging to **other communities**, and requests whose state is not one of the four above, are skipped - so everything yielded is a request for this community.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+# Auto-accept everyone who asks to join
+for request in community.listen_requests():
+    print(f"{request['public_key']}\t{request['state']}")
+
+    if request["state"] != "pending":
+        continue
+
+    community.accept(request["request_id"])
+    community["general"].send_message("Welcome to the community!")
+```
+
+![Community Request - Pending](./images/community/pending.png)
+
 ### Fetching a channel
 
 A `Channel` is retrieved by name with **subscript access** on the community. Available names come from [`channels` property](./community.md#channels).
@@ -367,7 +494,7 @@ channel.send_message("Hello from my Status bot!")
 
 The total number of members in the community is obtained by passing the community to the built-in `len()`.
 
-Returns `int`. This is the same count as the number of rows in the [`members` property](./community.md#members), without building the `DataFrame`.
+Returns `int`. This is the same count as the number of entries returned by [`get_members`](./community.md#get_membersdataframefalse), without building the `dict` or the `DataFrame`.
 
 ```python
 from status_sdk import Account, Community
@@ -554,43 +681,6 @@ community = Community(account, url=url)
 for name, info in community.categories.items():
     print(name, info["id"], info["position"])
 ```
-
-### `members`
-
-The current members of the community.
-
-Returns `pd.DataFrame`. An empty `DataFrame` is returned when there are no members.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `public_key` | `str` | Public key that uniquely identifies the member. |
-| `chat_id` | `str` | Chat identifier used for direct messaging. |
-| `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
-| `emojis` | `str` | Emoji hash associated with the member identity. |
-| `display_name` | `str` | The member's display name. Members without one are shown as a short key + Status URL fragment. |
-| `alias` | `str` | The member's initial (generated) name. |
-| `roles` | `list[str]` | The member's [roles](./community.md#roles). |
-| `bio` | `str` | The member's profile bio. |
-| `url` | `str` | Shareable Status profile URL for the member. |
-
-```python
-from status_sdk import Account, Community
-
-account = Account()
-params = {
-    "name": "status-app-bot",
-    "password": "SNTPUMP"
-}
-account.login(**params)
-
-url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
-community = Community(account, url=url)
-
-members = community.members
-print(members[["display_name", "roles"]].to_markdown(index=False))
-```
-
-![Community Members](./images/community/members.png)
 
 ### `channels`
 

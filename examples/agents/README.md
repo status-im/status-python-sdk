@@ -49,10 +49,16 @@ Each tool is a thin wrapper around the [Python SDK](../../README.md). They are d
 
 ### 1. Install
 
-From the **repository root**, install the SDK with the `agent` dependencies:
+Install the SDK from [PyPI](https://pypi.org/project/status-sdk/) with the `agents` dependencies:
 
 ```
-pip install ".[agent]"
+pip install "status-sdk[agents]"
+```
+
+Or, if you are working from a clone of the repository, install the same extra from the **repository root**:
+
+```
+pip install ".[agents]"
 ```
 
 ### 2. Configure

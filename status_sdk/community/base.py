@@ -1,7 +1,7 @@
 from ..account import Account
 from .. import exceptions
 from .channel import Channel
-from typing import Union, Optional
+from typing import Union, Optional, Generator
 import pandas as pd
 
 class Community:
@@ -11,6 +11,13 @@ class Community:
         1: "owner",
         4: "admin",
         5: "token_master"
+    }
+
+    __request_states = {
+        1: "pending",
+        2: "reject",
+        3: "accept",
+        4: "cancel"
     }
 
     def __init__(self, account: Account, community_id: Optional[str] = None, url: Optional[str] = None):
@@ -175,6 +182,31 @@ class Community:
         params = [self.id, channel.id.replace(self.id, "")]
         self.__account._call_rpc("messaging", "deleteCommunityChat", params)
 
+    def listen_requests(self) -> Generator:
+        """
+        Listen for commnunity requests
+        """
+        key = "requestsToJoinCommunity"
+        for message in self.__account.signal.listen("messages.new"):
+            event: dict = message.get("event", {})
+
+            if key not in event:
+                continue
+
+            for request in event[key]:
+                if request.get("communityId") != self.id:
+                    continue
+
+                state = self.__request_states.get(request["state"])
+                if not state:
+                    continue
+
+                yield {
+                    "request_id": request["id"],
+                    "state": state,
+                    "public_key": request["publicKey"]
+                }
+
     @property
     def categories(self) -> dict[str, str]:
         """
@@ -222,17 +254,28 @@ class Community:
         result = self.__get_community_info()
         return result["outroMessage"]
 
-    @property
-    def members(self) -> pd.DataFrame:
+    def get_members(self, dataframe: bool = False) -> Union[dict[str, dict], pd.DataFrame]:
         """
-        Current community members
+        Current community members.
+
+        Parameters:
+            - `dataframe` - if `True` then a `dict` of the existing members will be returned. Use this where speed matters.
+                            If `False` then a `pd.DataFrame` of the existing members will be returned. Use this for data related pipelines.
+
+        Output:
+            - `dict` or `DataFrame` of the current community members
         """
+        raw_data: dict[str, dict] = self.__get_community_info().get("members", {})
+        if not dataframe:
+            return raw_data
+
         members = []
-        for public_key, member_info in self.__get_community_info().get("members", {}).items():
+        for public_key, member_info in raw_data.items():
             response: dict = self.__account._call_rpc("messaging", "getContactByID", [public_key])
             result: dict = response.get("result", {})
             if not result:
                 result = {}
+
             url = self.__account._call_rpc("urls", "shareUserURLWithData", [public_key]).get("result")
             members.append({
                 "public_key": public_key,
@@ -372,7 +415,7 @@ class Community:
         """
         Get the total number of members in the community
         """
-        return len(self.__get_community_info().get("members", {}))
+        return len(self.get_members())
 
     def __get_community_info(self) -> dict:
         """

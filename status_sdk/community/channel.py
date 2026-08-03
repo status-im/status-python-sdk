@@ -81,7 +81,10 @@ class Channel:
         result = response.get("result", {})
         if not result:
             error: dict = response.get("error", {})
-            raise exceptions.CommunityChannelCreationError(error.get("message", f"Could not create channel '{name}' in community '{community_id}'..."))
+            message: str = error.get("message", f"Could not create channel '{name}' in community '{community_id}'...")
+            if "duplicate" in message:
+                raise exceptions.CommunityDuplicateError(f"Channel '{name}' already exists in community '{community_id}'...")
+            raise exceptions.CommunityChannelCreationError(message)
 
         chat: dict = result["chats"][0]
         self.__id = chat["id"]

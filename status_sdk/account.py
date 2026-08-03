@@ -486,7 +486,22 @@ class Account:
                 "joined_timestamp": to_datetime("joinedAt", community),
                 "requested_timestamp": to_datetime("requestedToJoinAt", community),
                 "encrypted": community["encrypted"],
-                "members": len(community["members"])
+                "members": len(community["members"]),
+                "channels": [
+                    {
+                        "id": chat["id"],
+                        "chat_id": community["id"] + chat["id"],
+                        "name": chat["name"],
+                        "description": chat["description"],
+                        "permissions": {
+                            "posting": chat["canPost"],
+                            "viewing": chat["canView"],
+                            "reactions": chat["canPostReactions"],
+                            "token_gated": chat["tokenGated"]
+                        }
+                    }
+                    for chat in community["chats"].values()
+                ]
             }
             for community in raw
         ]

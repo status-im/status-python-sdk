@@ -76,7 +76,7 @@ sequenceDiagram
 
 #### Install
 
-##### PyPI
+##### [PyPI](https://pypi.org/project/status-sdk/)
 
 ```
 pip install status-sdk

@@ -47,7 +47,13 @@ This is just one moderation policy. [`check_message`](./main.py) is self-contain
 
 ### 1. Install
 
-From the **repository root**, install the SDK with the `group-chat-moderator` dependencies:
+Install the SDK from [PyPI](https://pypi.org/project/status-sdk/) with the `group-chat-moderator` dependencies:
+
+```
+pip install "status-sdk[group-chat-moderator]"
+```
+
+Or, if you are working from a clone of the repository, install the same extra from the **repository root**:
 
 ```
 pip install ".[group-chat-moderator]"

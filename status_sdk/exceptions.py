@@ -33,6 +33,10 @@ class CommunityPendingMemberError(Exception):
 class CommunityChannelCreationError(Exception):
     pass
 
+class CommunityDuplicateError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "A community item with this name already exists! Please pick a different name...")
+
 class InvalidUserStatusError(ValueError):
     pass
 

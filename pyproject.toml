@@ -40,6 +40,10 @@ group-chat-moderator = [
     "detoxify",
     "python-dotenv"
 ]
+community-greet = [
+    "ollama",
+    "python-dotenv"
+]
 
 [project.urls]
 Source = "https://github.com/status-im/status-python-sdk"
