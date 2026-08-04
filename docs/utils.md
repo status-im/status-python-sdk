@@ -2,7 +2,7 @@
 
 ![Utils header image](./images/utils/overview.png)
 
-Helper functions for setting up the Status Backend environment.
+Helper functions for setting up the Status Backend environment, and package level metadata.
 
 ## Methods
 
@@ -94,4 +94,46 @@ sudo chown -R $USER:$USER /path/to/status_sdk
 ```bash
 sudo chmod -R a+rw /path/to/status_sdk
 ```
+
+## Properties
+
+### `__version__`
+
+The version of the installed `status-sdk` package. Returns `str`, matching the version published on [PyPI](https://pypi.org/project/status-sdk/).
+
+The value is read from the installed package metadata at import time, so it always reflects the version that is actually installed in your environment - not the version of any source checkout you happen to be standing in.
+
+```python
+import status_sdk
+
+print(status_sdk.__version__)
+# 1.1.0
+```
+
+It can also be imported directly:
+
+```python
+from status_sdk import __version__
+
+print(__version__)
+# 1.1.0
+```
+
+Please include it when [reporting an issue](https://github.com/status-im/status-python-sdk/issues), together with the [`status-go`](https://github.com/status-im/status-go) ref you passed to [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64) - the two together describe the exact setup a bug happened on:
+
+```python
+import status_sdk
+
+print(f"status-sdk {status_sdk.__version__}")
+```
+
+#### Running from a source
+
+`__version__` falls back to `dev` when the package has no installed metadata to read - which happens if you cloned the repository and imported `status_sdk` from the project folder without installing it. Install the repository in editable mode and the real version is reported again:
+
+```bash
+pip install -e .
+```
+
+Treat `dev` as "not installed" rather than as a real release - it is deliberately lower than every published version, so the `packaging` check above will fail against it.
 

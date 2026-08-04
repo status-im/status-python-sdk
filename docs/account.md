@@ -1558,6 +1558,7 @@ Each community contains information about:
 - community metadata (name, tags)
 - membership status
 - number of members
+- every channel in the community, with the account's permissions on it
 
 Returns `list[dict]` where each element represents a community.
 
@@ -1570,10 +1571,32 @@ Returns `list[dict]` where each element represents a community.
 | `tags` | `list[str]` | Tags associated with the community. |
 | `is_member` | `bool` | Whether the account is currently a member of the community. |
 | `joined` | `bool` | Whether the account has joined the community. |
-| `joined_timestamp` | `datetime.datetime` | Timestamp when the account joined the community. |
-| `requested_timestamp` | `datetime.datetime` | Timestamp when the join request was submitted. |
+| `joined_timestamp` | `datetime.datetime`<br>`None` | Timestamp when the account joined the community. `None` when the account has not joined. |
+| `requested_timestamp` | `datetime.datetime`<br>`None` | Timestamp when the join request was submitted. `None` when no request was made. |
 | `encrypted` | `bool` | Whether the community messaging is encrypted. |
 | `members` | `int` | Total number of community members. |
+| `channels` | `list[dict]` | Every channel in the community. See [channels](./account.md#channels) below. |
+
+##### `channels`
+
+Each entry of `channels` describes one channel and what the account is allowed to do in it.
+
+| Key | Type | Description |
+|----|----|-------------|
+| `id` | `str` | The channel's own id, **without** the community id in front of it. |
+| `chat_id` | `str` | The community id and channel id joined together. **This is the value to pass** to [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) - `id` on its own will not work. |
+| `name` | `str` | The channel name, as shown in Status App. |
+| `description` | `str` | The channel description. |
+| `permissions` | `dict` | What the account can do in the channel - see below. |
+
+`permissions` holds four booleans:
+
+| Key | Type | Description |
+|----|----|-------------|
+| `posting` | `bool` | Whether the account can send messages to the channel. [`chats`](./account.md#chats) only lists channels where this is `True`. |
+| `viewing` | `bool` | Whether the account can read the channel. |
+| `reactions` | `bool` | Whether the account can post emoji reactions. |
+| `token_gated` | `bool` | Whether access to the channel is gated behind a token. |
 
 ```python
 from status_sdk import Account
@@ -1588,7 +1611,21 @@ account.login(**params)
 for community in account.communities:
     print(community["name"], community["members"])
 ```
-**Note**: To work with a community's channels, members and settings, wrap its `id` in the [`Community`](./community.md) class - for example `Community(account, community["id"])`.
+
+Find every channel the account can post in, without going through [`chats`](./account.md#chats):
+
+```python
+for community in account.communities:
+    for channel in community["channels"]:
+        if not channel["permissions"]["posting"]:
+            continue
+
+        print(f"{community['name']} #{channel['name']}\t{channel['chat_id']}")
+```
+
+**Note**: To work with a community's channels, members and settings, wrap its `id` in the [`Community`](./community.md) class - for example `Community(account, community["id"])`. `communities` is a read-only snapshot: it lists the channels but cannot create, edit or delete them.
+
+**Note**: `joined` currently returns the same value as `verified`, because [`communities`](../status_sdk/account.py#L498) reads `community["verified"]` for both. Use `is_member` to check membership until that is fixed.
 
 #### `chats`
 
