@@ -22,6 +22,8 @@ If the account is already a member, the community is ready to use. Otherwise a *
 
 Only members can read a community's state, and only privileged members (owner / admin / token master) can [ban](./community.md#banpublic_keys-delete_messagesfalse), [accept](./community.md#acceptpending_request_id) or manage channels.
 
+The account's own standing in the community is reported by [`is_member`](./community.md#is_member), [`has_joined`](./community.md#has_joined), [`joined_timestamp`](./community.md#joined_timestamp) and [`requested_timestamp`](./community.md#requested_timestamp).
+
 ## Roles
 
 Every member carries one or more **roles**, returned by [`get_members`](./community.md#get_membersdataframefalse). The raw `dict` form exposes the backend's numeric codes, while the `DataFrame` form resolves them to the names below.
@@ -654,6 +656,144 @@ print(community.leave_message)
 
 ![Community Leave Message](./images/community/leave-message.png)
 
+### `tags`
+
+The community's tags - the topics it is listed under in Status App, picked when the community is created.
+
+Returns `list[str]`, e.g. `["Crypto", "Technology"]`. An empty list is returned when the community has no tags.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.tags)
+```
+
+### `is_encrypted`
+
+Whether the community's messages are encrypted. This is a community-wide setting chosen at creation - it cannot be turned on for a single [`Channel`](./community.md#channel).
+
+Returns `bool`. This is the same value as `encrypted` in [`communities`](./account.md#communities) on `Account`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.is_encrypted)
+```
+
+### `is_member`
+
+Whether the logged-in account is a member of the community - that is, whether it appears in the community's [member list](./community.md#get_membersdataframefalse).
+
+Returns `bool`. This is the same value as `is_member` in [`communities`](./account.md#communities) on `Account`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+if not community.is_member:
+    print("The account is not a member of this community")
+```
+
+### `has_joined`
+
+Whether the account has **joined** the community. Where [`is_member`](./community.md#is_member) reflects the account's presence in the community's member list, this is the join flag held on the account's side - it is set when the account joins and cleared when it [leaves](./community.md#leave).
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.has_joined)
+```
+
+**Note**: this is **not** the same as the `joined` key of [`communities`](./account.md#communities) on `Account`, which currently mirrors `verified`.
+
+### `joined_timestamp`
+
+When the account joined the community.
+
+Returns `datetime.datetime`, or `None` when the account has not joined.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+joined = community.joined_timestamp
+print(f"Joined on {joined:%Y-%m-%d}" if joined else "Not joined yet")
+```
+
+### `requested_timestamp`
+
+When the account's request to join the community was sent - the request created by the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor when the account is not yet a member.
+
+Returns `datetime.datetime`, or `None` when no join request was ever sent - for example when the account created the community itself.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+print(community.requested_timestamp)
+```
+
+**Note**: while a join request is still pending, the community's [`id`](./community.md#id) is unset and every property - this one included - raises a custom exception. The timestamp becomes readable once the request has been [accepted](./community.md#acceptpending_request_id) and the `Community` is re-created by id.
+
 ### `categories`
 
 The community's categories, keyed by **category name**.
@@ -1042,11 +1182,11 @@ channel = community["general"]
 print(channel.id)
 ```
 
-### `can_post`
+### `url`
 
-Whether the logged-in account is allowed to post in the channel.
+The shareable URL of the channel. Where the [community URL](./community.md#url) points at the community as a whole, this one opens **this channel** in Status App.
 
-Returns `bool`.
+Returns `str`, or `None` if the backend does not return one.
 
 ```python
 from status_sdk import Account, Community
@@ -1062,8 +1202,7 @@ url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X
 community = Community(account, url=url)
 
 channel = community["general"]
-if channel.can_post:
-    channel.send_message("Hello!")
+channel.send_message(f"Talk about it here: {channel.url}")
 ```
 
 ### `name`
@@ -1176,3 +1315,117 @@ print(channel.emoji)
 ```
 
 ![Community Edit Emoji](./images/community/edit-channel-emoji.png)
+
+### Permissions
+
+Four properties describe what the logged-in account may do in the channel - [`can_post`](./community.md#can_post), [`can_view`](./community.md#can_view), [`can_react`](./community.md#can_react) and [`is_token_gated`](./community.md#is_token_gated). They are the per-channel counterpart of the `permissions` keys exposed by [`communities`](./account.md#channels) on `Account`, and every one of them returns a `bool`.
+
+| Property | `permissions` key | Description |
+|-------|--------|-------------|
+| [`can_post`](./community.md#can_post) | `posting` | The account can send messages to the channel. |
+| [`can_view`](./community.md#can_view) | `viewing` | The account can read the channel. |
+| [`can_react`](./community.md#can_react) | `reactions` | The account can post emoji reactions. |
+| [`is_token_gated`](./community.md#is_token_gated) | `token_gated` | Access to the channel is gated behind a token. |
+
+#### `can_post`
+
+Whether the logged-in account is allowed to post in the channel.
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+if channel.can_post:
+    channel.send_message("Hello!")
+```
+
+#### `can_view`
+
+Whether the logged-in account is allowed to read the channel. When this is `False`, [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone) has nothing to return.
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+# Only read the channels the account is allowed to see
+for info in community.channels:
+    channel = community[info["name"]]
+    if not channel.can_view:
+        continue
+
+    print(info["name"], len(channel.get_messages()))
+```
+
+#### `can_react`
+
+Whether the logged-in account is allowed to post emoji reactions in the channel.
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+print(channel.can_react)
+```
+
+**Note**: this reports the **permission** as Status App does. Sending reactions is not supported by the SDK - channels are written to with [`send_message`](./community.md#send_messagemessage-reply_to_message_idnone). Channels [created](./community.md#create_channelname-description-emojinone-colournone-category_namenone) through the SDK allow their viewers to post reactions.
+
+#### `is_token_gated`
+
+Whether access to the channel is gated behind a token. Members who do not hold the required token are refused access, which shows up as [`can_view`](./community.md#can_view) and [`can_post`](./community.md#can_post) being `False`.
+
+Returns `bool`.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+if channel.is_token_gated and not channel.can_post:
+    print("The account does not hold the token this channel requires")
+```
+
+**Note**: token gating is configured in Status App. The SDK reports it, and always [creates channels](./community.md#create_channelname-description-emojinone-colournone-category_namenone) that are open to every member.

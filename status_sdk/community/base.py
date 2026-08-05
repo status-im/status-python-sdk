@@ -3,6 +3,7 @@ from .. import exceptions
 from .channel import Channel
 from typing import Union, Optional, Generator
 import pandas as pd
+import datetime
 
 class Community:
 
@@ -239,6 +240,52 @@ class Community:
         return result["description"]
 
     @property
+    def is_member(self) -> str:
+        """
+        If the account is a member of the community
+        """
+        result = self.__get_community_info()
+        return result["isMember"]
+
+    @property
+    def is_encrypted(self) -> str:
+        """
+        If the account is a member of the community
+        """
+        result = self.__get_community_info()
+        return result["encrypted"]
+
+    @property
+    def tags(self) -> str:
+        """
+        The community's tags
+        """
+        result = self.__get_community_info()
+        return result["tags"]
+
+    @property
+    def has_joined(self) -> str:
+        """
+        The community's tags
+        """
+        result = self.__get_community_info()
+        return result["joined"]
+
+    @property
+    def joined_timestamp(self) -> Optional[datetime.datetime]:
+        """
+        The datetime of when the community was joined
+        """
+        return self.__to_datetime("joinedAt")
+
+    @property
+    def requested_timestamp(self) -> Optional[datetime.datetime]:
+        """
+        The datetime of when the community request was sent
+        """
+        return self.__to_datetime("requestedToJoinAt")
+
+    @property
     def introduction(self) -> str:
         """
         The community's introduction message when new users join
@@ -456,7 +503,7 @@ class Community:
             self.__account.get_public_key(public_key)
             for public_key in public_keys
         ]).str.lower()
-        members = self.members
+        members = self.get_members(True)
         query = members["public_key"].str.lower().isin(public_keys)
         if query.sum() > 0:
             return members.loc[query, "public_key"].to_list()
@@ -467,3 +514,16 @@ class Community:
             return banned.loc[query].to_list()
 
         raise exceptions.CommunityMembersError("None of the provided Public Keys were found in the community...")
+
+    def __to_datetime(self, key: str) -> Optional[datetime.datetime]:
+        """
+        Extract the `datetime.datetime` from the given key.
+
+        Parameters:
+            - `key` - a key from `__get_community_info()`
+
+        Output:
+            - the `datetime.datetime` of the `key`
+        """
+        result = self.__get_community_info()
+        return datetime.datetime.fromtimestamp(result[key]) if result[key] != 0 else None

@@ -99,6 +99,35 @@ class Channel:
         return self.__id
 
     @property
+    def url(self) -> str:
+        """
+        The URL of the channel
+        """
+        info = self.__get_channel_info()
+        return self.__account._call_rpc("urls", "shareCommunityChannelURLWithData", [self.__community_id, info["id"]]).get("result")
+
+    @property
+    def can_view(self) -> bool:
+        """
+        If the account is allowed to view messages
+        """
+        return self.__get_channel_info()["canView"]
+
+    @property
+    def can_react(self) -> bool:
+        """
+        If the account is allowed to post rections
+        """
+        return self.__get_channel_info()["canPostReactions"]
+
+    @property
+    def is_token_gated(self) -> bool:
+        """
+        If the channel is token gated
+        """
+        return self.__get_channel_info()["tokenGated"]
+
+    @property
     def can_post(self) -> bool:
         """
         If the account is allowed to send messages

@@ -1,6 +1,6 @@
 # Status Python SDK
 
-![Status Python SDK header image](./docs/images/readme/overview.png)
+![Status Python SDK header image](https://raw.githubusercontent.com/status-im/status-python-sdk/refs/heads/master/docs/images/readme/overview.png)
 
 [Status](http://status.app/) is a decentralized, open-source super app combining a crypto wallet, messenger, and community spaces. It uses peer-to-peer technology so no central server can censor your messages or access your data.
 
