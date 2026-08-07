@@ -519,7 +519,6 @@ Listen for new incoming messages **in real time**. This method yields raw messag
 
 ```python
 from status_sdk import Account
-import datetime
 # For terminal readability only
 from rich import print as rprint
 from rich.pretty import Pretty
@@ -536,6 +535,27 @@ for msg in account.listen_messages():
 ```
 
 **Note**: If you receive multiple messages at once, `contacts` and `chats` will grow.
+
+#### `listen_contact_requests()`
+
+Listen for incoming contact requests **in real time**.
+
+```python
+from status_sdk import Account
+# For terminal readability only
+from rich import print as rprint
+from rich.pretty import Pretty
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for request in account.listen_contact_requests():
+    rprint(Pretty(request))
+```
 
 #### `add_contact(public_key, display_name=None)`
 

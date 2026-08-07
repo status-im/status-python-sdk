@@ -695,6 +695,16 @@ class Account:
             self.logger.warning(f"Could not delete Message {id}... {error.get('message')}")
         return not bool(error)
 
+    def listen_contact_requests(self) -> Generator:
+        """
+        Listen for new contact requests. Can be used for real time processing.
+        """
+        for message in self.signal.listen("local-notifications"):
+            event: dict = message.get("event", {})
+            category = event.get("category")
+            if category == "contactRequest":
+                yield message
+
     def listen_messages(self) -> Generator:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
