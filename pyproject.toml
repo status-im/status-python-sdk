@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "status-sdk"
-version = "1.1.0"
+version = "1.1.1"
 description = "Private chat. Communities. Multi-chain wallet. Browser. dApps all in one app, powered by SNT."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,7 @@ dependencies = [
     "pandas",
     "pillow",
     "eth-abi",
+    "pyyaml"
 ]
 
 [project.optional-dependencies]

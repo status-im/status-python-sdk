@@ -37,6 +37,18 @@ class CommunityDuplicateError(Exception):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "A community item with this name already exists! Please pick a different name...")
 
+class CommunityPermissionError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Only the community's owner, admins and token masters can perform this action...")
+
+class CommunityDataFolderError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "Please provide a local `data_folder` when creating the Community. Make sure the folder is the same one used in `launch_docker_container`...")
+
+class CommunityControlNodeError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "The provided folder cannot be uploaded as the community's control node...")
+
 class InvalidUserStatusError(ValueError):
     pass
 

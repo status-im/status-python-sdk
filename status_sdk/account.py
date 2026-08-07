@@ -58,7 +58,7 @@ class Account:
         self.__alchemy_token = None
         self.__transactions: Optional[pd.DataFrame] = None
         # Path of the account data in the Docker container for Status Backend
-        self.__docker_data_folder = "./data-dir"
+        self.__docker_data_folder = "./data"
         # Path of the backups in the Docker container for Status Backend
         self.__docker_backup_folder = "./root/.config/Status/backups"
         self.__backup_folder = backup_folder
@@ -250,7 +250,7 @@ class Account:
             self.logger.info("Updating remote display name")
             self.display_name = event["display-name"]
             self.logger.info("Successfully updated display name!")
-            self.__load_backup()
+            self._load_backup()
 
         if self.__info["installation_id"]:
             self._call_rpc("messaging", "setInstallationName", [self.__info["installation_id"], self.__INSTALLATION_NAME])
@@ -1471,10 +1471,10 @@ class Account:
         except Exception:
             pass
 
-    def __load_backup(self):
+    def _load_backup(self):
         """
-        Try to load every file in the Docker volume
-        when an account recover is done.
+        Try to load a backup file in the Docker volume
+        when an account recovery is completed.
         """
         folder = self.__backup_folder if self.__backup_folder else self.__backup_sdk_folder
 

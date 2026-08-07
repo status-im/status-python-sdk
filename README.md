@@ -121,7 +121,7 @@ You can set it up in **two** ways.
 
 #### With Python
 
-Use [`launch_docker_container`](./docs/utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64), which builds and starts the container for you. This is the recommended option, as it handles platform selection and (on Windows) recovers from stale Docker mounts:
+Use [`launch_docker_container`](./docs/utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone), which builds and starts the container for you. This is the recommended option, as it handles platform selection and (on Windows) recovers from stale Docker mounts:
 
 ```python
 from status_sdk import launch_docker_container
@@ -136,13 +136,14 @@ Run the compose file yourself. It lives inside the installed package, so point D
 docker compose -f status_sdk/docker-compose.yaml up -d
 ```
 
-The compose file reads two variables from the environment. Both have a default, so the command above works as-is, but they can be overridden:
+The compose file reads three variables from the environment. All of them have a default, so the command above works as-is, but they can be overridden:
 
 | Variable | Default | Description |
 |-----|-----|-------------|
-| `STATUS_GO_REF` | `develop` | The [`status-im/status-go`](https://github.com/status-im/status-go/) git ref (commit SHA, branch or tag) to build from. |
-| `STATUS_GO_PLATFORM` | `linux/amd64` | The platform the image is built for. |
+| `STATUS_GO_COMMIT` | `develop` | The [`status-im/status-go`](https://github.com/status-im/status-go/) git ref (commit SHA, branch or tag) to build from. |
+| `PLATFORM` | `linux/amd64` | The platform the image is built for. |
+| `DATA_DIR` | `./data` | The folder on your machine where Status Backend keeps the accounts it creates. Use an absolute path, or one starting with `./` - a bare relative path is read as a Docker volume name. Required for a community [control node](./docs/community.md#control-node). |
 
 ```
-STATUS_GO_REF=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 STATUS_GO_PLATFORM=linux/amd64 docker compose -f status_sdk/docker-compose.yaml up -d
+STATUS_GO_COMMIT=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 PLATFORM=linux/amd64 DATA_DIR=./data docker compose -f status_sdk/docker-compose.yaml up -d
 ```

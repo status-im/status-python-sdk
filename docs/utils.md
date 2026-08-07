@@ -6,23 +6,24 @@ Helper functions for setting up the Status Backend environment, and package leve
 
 ## Methods
 
-### `launch_docker_container(commit=None, wait_seconds=5, platform="linux/amd64")`
+### `launch_docker_container(commit=None, wait_seconds=5, platform="linux/amd64", data_folder=None)`
 
 Launch Status Backend Docker container in the background using `docker-compose.yaml`. If `docker` is not installed, or if the container fails to start, an **exception will be raised** with the error message from Docker. The container is built from [`status-im/status-go`](https://github.com/status-im/status-go) at the git ref you choose:
 
 ```yaml
-context: https://github.com/status-im/status-go.git#${STATUS_GO_REF:-develop}
+context: https://github.com/status-im/status-go.git#${STATUS_GO_COMMIT:-develop}
 ```
 
 The image is always rebuilt (`docker compose up --build`) so a newly chosen `commit` is picked up instead of reusing a previously built image.
 
-**Note**: The container mounts the SDK's `backups/` and `assets/` folders as Docker volumes. Make sure the repository has **read and write permissions**, otherwise the container will fail to start or [backups](./account.md#backups) and [profile pictures](./account.md#profile_picture) will not be saved. On Docker Desktop the repository must also be a **shared path** (see [Windows](./utils.md#windows) and [Mac](./utils.md#mac)).
+**Note**: The container mounts the SDK's `backups/`, `assets/` and `data/` folders as Docker volumes. Make sure the repository has **read and write permissions**, otherwise the container will fail to start or [backups](./account.md#backups) and [profile pictures](./account.md#profile_picture) will not be saved. On Docker Desktop the repository must also be a **shared path** (see [Windows](./utils.md#windows) and [Mac](./utils.md#mac)).
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `commit` | `str` | No | The `status-im/status-go` git ref to build from - a commit SHA, branch, or tag. When omitted, the latest `develop` branch is built. |
 | `wait_seconds` | `int` | No | Number of seconds to pause after the `docker compose up` command returns, giving Status Backend enough time to finish booting before subsequent code runs. Defaults to `5`. This matters mainly when the container already exists and is being restarted, because `docker compose up` returns immediately while the backend is still warming up - instantiating [`Account`](./account.md#accountdomainlocalhost-port8080-is_securefalse-backup_foldernone) too quickly will fail to connect. On [Windows](./utils.md#windows) the same value is used to wait between retries after WSL has been restarted. |
 | `platform` | `str` | No | The platform the image is built for. Defaults to `linux/amd64`. Run `docker buildx ls` to see the platforms your Docker installation supports, and pass the matching value if the default does not build on your machine. |
+| `data_folder` | `str` | No | The folder on **your machine** where Status Backend keeps the accounts it creates. If you are a **[Community Control Node](./community.md#control-node)** you will need to create a Docker container with a volume folder, and pass that **same** folder to [`Community`](./community.md#communityaccount-community_idnone-urlnone) so [`upload_control_node`](./community.md#upload_control_nodefolder) can reach it. |
 
 Wait time after container has launched:
 ```python
@@ -107,7 +108,6 @@ The value is read from the installed package metadata at import time, so it alwa
 import status_sdk
 
 print(status_sdk.__version__)
-# 1.1.0
 ```
 
 It can also be imported directly:
@@ -116,10 +116,9 @@ It can also be imported directly:
 from status_sdk import __version__
 
 print(__version__)
-# 1.1.0
 ```
 
-Please include it when [reporting an issue](https://github.com/status-im/status-python-sdk/issues), together with the [`status-go`](https://github.com/status-im/status-go) ref you passed to [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64) - the two together describe the exact setup a bug happened on:
+Please include it when [reporting an issue](https://github.com/status-im/status-python-sdk/issues), together with the [`status-go`](https://github.com/status-im/status-go) ref you passed to [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) - the two together describe the exact setup a bug happened on:
 
 ```python
 import status_sdk
