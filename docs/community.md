@@ -1,10 +1,10 @@
 # Community
 
-![Community header image](./images/community/overview.webp)
+![Community header image](./images/community/overview.png)
 
-The community class lets you work with a [Status Community](https://status.app/help/communities) and its channels. A [`Community`](./community.md#communityaccount-community_idnone-urlnone) is always bound to a logged-in [`Account`](./account.md), and each of its channels is exposed as a [`Channel`](./community.md#channel).
+The community class lets you work with a [Status Community](https://status.app/help/communities) and its channels. A [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) is always bound to a logged-in [`Account`](./account.md), and each of its channels is exposed as a [`Channel`](./community.md#channel).
 
-- [`Community`](./community.md#communityaccount-community_idnone-urlnone) - manages membership (members, join requests, bans) and the community's channels.
+- [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) - manages membership (members, join requests, bans), the community's channels and reports its [minted tokens](./community.md#get_collectibles).
 - [`Channel`](./community.md#channel) - manages a single channel - its identity (name, description, emoji, colour) and messaging.
 
 You never construct a `Channel` directly. Instead you [create one](./community.md#create_channelname-description-emojinone-colournone-category_namenone) or fetch an existing one by name with [subscript access](./community.md#fetching-a-channel).
@@ -37,7 +37,17 @@ Every member carries one or more **roles**, returned by [`get_members`](./commun
 
 **Note**: the backend **omits** the `roles` key entirely for regular members - `0` / `none` is the fallback applied by the SDK, so it shows up in the `DataFrame` but never in the raw payload. Only the codes above are recognised; a member carrying any other code cannot be resolved by [`get_members(dataframe=True)`](./community.md#get_membersdataframefalse).
 
-## `Community(account, community_id=None, url=None)`
+## Control node
+
+The community's [control node](https://status.app/help/communities/about-the-control-node-in-status-communities) maintains your community's settings, configuration and functionality. **If the control node goes offline, your community functionality is affected.** 
+
+This matters for a bot, because a community created in Status App has its control node on the desktop application that created it, not on [`status-im/status-go`](https://github.com/status-im/status-go). The control node is the only computer that manages community members. You can use another computer or delegate tasks, but all actions go through the control node. If it's offline, new members can't be accepted, and join requests stay Pending until it comes back online.
+
+The account behind the bot can hold the [`owner`](./community.md#roles) role and still not be the device that **owns** the key.
+
+[`upload_control_node`](./community.md#upload_control_nodefolder) closes that gap - it replaces the account data Status Backend runs on with the `data` folder of the Status App installation that created the community, so the bot runs as that same installation.
+
+## `Community(account, community_id=None, url=None, data_folder=None)`
 
 Create a `Community` instance bound to a **logged-in** [`Account`](./account.md). Provide **either** `community_id` **or** `url`.
 
@@ -46,6 +56,8 @@ Create a `Community` instance bound to a **logged-in** [`Account`](./account.md)
 | `account` | `Account` | Yes | A **logged-in** [`Account`](./account.md). If the account is not logged in, a custom exception is raised. |
 | `community_id` | `str` | No* | The id of a community the account is **already a member of**. Community ids can be obtained from [`communities`](./account.md#communities) on `Account`. |
 | `url` | `str` | No* | A shared community invite URL. Used to join the community if the account is not already a member. See [Joining a community](./community.md#joining-a-community). |
+| `data_folder` | `str` | No | The folder on **your machine** that [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) mounts into Status Backend. That is the only place the account data written by Status Backend lives, so a different folder cannot be reached. The path is resolved to its `data` subfolder, so `"status-backend-data"` and `"status-backend-data/data"` are equivalent. This property is only needed when the **same account is logged into Status App**, created a community there, and you want [`status-im/status-go`](https://github.com/status-im/status-go) (Status Backend) to take over as its [control node](./community.md#control-node) - it is where [`upload_control_node`](./community.md#upload_control_nodefolder) writes the uploaded account data. Leave it unset for every other use. |
+
 
 Wrap a community the account is already in:
 
@@ -159,6 +171,108 @@ print(members[["display_name", "roles"]].to_markdown(index=False))
 ```
 
 ![Community Members](./images/community/members.png)
+
+### `get_collectibles()`
+
+The community's **minted tokens** and who is holding them - one row per holder, per token, per chain.
+
+A community can mint its own tokens, which are then used for [token gating](./community.md#is_token_gated) and rewards. This method takes every token the community has minted, looks up the holders of each of its contracts, and returns them as a `pd.DataFrame`. Tokens minted on more than one chain are looked up on each chain separately, so the same `symbol` can appear under several `chain_id` values.
+
+Returns `pd.DataFrame`, one row per `owner` per contract. Rows are sorted by `symbol`, `name`, `chain_id`, `contract_address` and `owner`.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `symbol` | `str` | The token's symbol, as minted by the community. |
+| `name` | `str` | The token's name. |
+| `chain_id` | `int` | Chain ID the contract is deployed on. Matches values from [`chains`](./account.md#chains). |
+| `contract_address` | `str` | Address of the token contract on that chain. |
+| `owner` | `str` | Wallet address holding the token. |
+| `balance` | `int` | Number of tokens that wallet holds. |
+| `is_owner` | `bool` | `True` when `owner` is the logged-in account's own `wallet_address`, from [`info`](./account.md#info). |
+
+This costs **one call per contract**, on top of the community fetch - so it is a reporting method rather than something to poll. Contracts the wallet service returns no holders for contribute no rows.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+collectibles = community.get_collectibles()
+print(collectibles.to_markdown(index=False))
+```
+
+What the account itself is holding:
+
+```python
+collectibles = community.get_collectibles()
+
+mine = collectibles.loc[collectibles["is_owner"]]
+for row in mine.itertuples():
+    print(f"{row.symbol}\t{row.balance}")
+```
+
+The biggest holders of a token, and how much of it is out there:
+
+```python
+collectibles = community.get_collectibles()
+
+snt_pump = collectibles.loc[collectibles["symbol"] == "PUMP"]
+print(f"{snt_pump['balance'].sum()} held across {len(snt_pump)} wallets")
+print(snt_pump.nlargest(5, "balance")[["owner", "balance"]].to_markdown(index=False))
+```
+
+**Note**: the returned holders are **wallet addresses**, not the public keys used everywhere else in this class. They cannot be passed to [`kick`](./community.md#kickpublic_keys), [`ban`](./community.md#banpublic_keys-delete_messagesfalse) or [`get_public_key`](./account.md#get_public_keyvalue), and a holder does not have to be a member of the community.
+
+**Note**: a community that has **not minted any tokens** does not return an empty `DataFrame` - there are no columns to group by, so pandas raises a `ValueError`. Wrap the call in a `try` / `except ValueError` when the community is not known to have tokens.
+
+### `upload_control_node(folder)`
+
+Hand Status Backend the account data of an existing Status App installation, so the bot runs as that installation and becomes the community's [control node](./community.md#control-node).
+
+**This is destructive.** Everything inside the [`data_folder`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) given to the `Community` constructor is **deleted** and replaced with the contents of `folder`. Point `folder` at a copy of the account data, never at the only one you have.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `folder` | `str` | Yes | The account data folder to upload - `data` when it comes from Status App, or `data` when it comes from a [`status-im/status-go`](https://github.com/status-im/status-go) container. |
+
+
+```python
+from status_sdk import Account, Community, launch_docker_container
+
+# The container and the Community must be pointed at the same folder
+data_folder = "status-backend-data"
+launch_docker_container(data_folder=data_folder)
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP",
+    # The account that created the community in Status App
+    "mnemonic": "lens crater peanut ..."
+}
+account.login(**params)
+
+community_id = account.communities[0]["id"]
+community = Community(account, community_id, data_folder=data_folder)
+
+# A copy of the Status App `data` folder for that same account
+community.upload_control_node("status-app-copy/data")
+print(f"{community.name} is now controlled by this backend")
+```
+
+**Note**: Status App does not show where it keeps its account data. Open the `logs` folder it writes to and go **one directory up** - `data` sits next to it:
+
+![Status App data folder](./images/community/data-folder.png)
+
+That `data` folder is the one to pass as `folder`.
 
 ### `ban(public_keys, delete_messages=False)`
 
@@ -540,7 +654,7 @@ print(community.id)
 
 ### `url`
 
-The shareable invite URL of the community. This is the same URL that can be passed to the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor to join or wrap the community.
+The shareable invite URL of the community. This is the same URL that can be passed to the [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) constructor to join or wrap the community.
 
 Returns `str`, or `None` if the backend does not return one.
 
@@ -772,7 +886,7 @@ print(f"Joined on {joined:%Y-%m-%d}" if joined else "Not joined yet")
 
 ### `requested_timestamp`
 
-When the account's request to join the community was sent - the request created by the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor when the account is not yet a member.
+When the account's request to join the community was sent - the request created by the [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) constructor when the account is not yet a member.
 
 Returns `datetime.datetime`, or `None` when no join request was ever sent - for example when the account created the community itself.
 

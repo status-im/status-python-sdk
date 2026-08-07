@@ -3,6 +3,7 @@ import uuid as uuid_lib
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
 from . import exceptions
+from Crypto.Hash import keccak
 from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
@@ -35,6 +36,7 @@ class Account:
         "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
+    __KECCAK256_ERROR = "failed to open database: failed to set `journal_mode` pragma: file is not a database"
     __status_types = {
         "auto": 1,
         "dnd": 2,
@@ -58,7 +60,7 @@ class Account:
         self.__alchemy_token = None
         self.__transactions: Optional[pd.DataFrame] = None
         # Path of the account data in the Docker container for Status Backend
-        self.__docker_data_folder = "./data-dir"
+        self.__docker_data_folder = "./data"
         # Path of the backups in the Docker container for Status Backend
         self.__docker_backup_folder = "./root/.config/Status/backups"
         self.__backup_folder = backup_folder
@@ -217,6 +219,14 @@ class Account:
         })
         response = requests.post(url, json=params)
         signal_event = self.__signal.get("node.login")
+        # Password must be hashed if the `data` folder has been copied over from another Status instance (`status-im/status-go` or Status App)
+        if signal_event["is_error"] and signal_event["error_message"] == self.__KECCAK256_ERROR:
+            h = keccak.new(digest_bits=256)
+            h.update(params["password"].encode())
+            params["password"] = "0x" + h.hexdigest().lower()
+            response = requests.post(url, json=params)
+            signal_event = self.__signal.get("node.login")
+
         if signal_event["is_error"]:
             raise exceptions.BackendError(f"There was an error with Status Backend...\n{signal_event['error_message']}")
 
@@ -250,7 +260,7 @@ class Account:
             self.logger.info("Updating remote display name")
             self.display_name = event["display-name"]
             self.logger.info("Successfully updated display name!")
-            self.__load_backup()
+            self._load_backup()
 
         if self.__info["installation_id"]:
             self._call_rpc("messaging", "setInstallationName", [self.__info["installation_id"], self.__INSTALLATION_NAME])
@@ -1471,10 +1481,10 @@ class Account:
         except Exception:
             pass
 
-    def __load_backup(self):
+    def _load_backup(self):
         """
-        Try to load every file in the Docker volume
-        when an account recover is done.
+        Try to load a backup file in the Docker volume
+        when an account recovery is completed.
         """
         folder = self.__backup_folder if self.__backup_folder else self.__backup_sdk_folder
 

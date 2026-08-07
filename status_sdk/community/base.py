@@ -3,7 +3,7 @@ from .. import exceptions
 from .channel import Channel
 from typing import Union, Optional, Generator
 import pandas as pd
-import datetime
+import datetime, copy, os, shutil
 
 class Community:
 
@@ -21,7 +21,7 @@ class Community:
         4: "cancel"
     }
 
-    def __init__(self, account: Account, community_id: Optional[str] = None, url: Optional[str] = None):
+    def __init__(self, account: Account, community_id: Optional[str] = None, url: Optional[str] = None, data_folder: Optional[str] = None):
         """
         Work with Status App Communities
 
@@ -29,10 +29,14 @@ class Community:
             - `account` - a logged in `Account`
             - `community_id` - the Community's ID. If unknown, please provide `url`.
             - `url` - the Community's URL. If unknown, please provide `community_id`
+            - `data_folder` - the local folder mounted into the Status Backend Docker container, holding the accounts and their community data. It must be the **same** folder that was passed to `launch_docker_container`, otherwise the community data written by Status Backend cannot be reached.
         """
         # Verify that the user is logged in
         account.info
         self.__account = account
+        self.__data_folder = data_folder
+        if self.__data_folder and os.path.basename(self.__data_folder) != "data":
+            self.__data_folder = os.path.join(self.__data_folder, "data")
 
         if community_id:
             self.__id = community_id
@@ -85,6 +89,7 @@ class Community:
         Parameters:
             - `public_keys` - a single value or a list of public keys / chat keys / account URLs to kick. The formats can be mixed within the same list. Current members can be found in `members`
         """
+        self.__verify_admin()
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
             params = [self.id, self.__account.get_public_key(public_key)]
@@ -98,6 +103,7 @@ class Community:
             - `public_keys` - a single value or a list of public keys / chat keys / account URLs to ban. The formats can be mixed within the same list. Current members can be found in `members`
             - `delete_messages` - if `True`, all messages sent by the banned members are also deleted
         """
+        self.__verify_admin()
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
             params = [{"communityId": self.id, "user": self.__account.get_public_key(public_key), "deleteAllMessages": delete_messages}]
@@ -110,6 +116,7 @@ class Community:
         Parameters:
             - `public_keys` - a single value or a list of public keys / chat keys / account URLs to unban. The formats can be mixed within the same list. Banned members can be found in `banned_members`
         """
+        self.__verify_admin()
         public_keys = self.__normalise_public_keys(public_keys)
         for public_key in public_keys:
             params = [{"communityId": self.id, "user": public_key}]
@@ -143,6 +150,7 @@ class Community:
             - `pending_request_id` - the `request_id` of a member from `pending_members`
             - `mode` - either `accept` or `decline`, selecting which action to perform
         """
+        self.__verify_admin()
         mode_mapping = {
             "accept": "acceptRequestToJoinCommunity",
             "decline": "declineRequestToJoinCommunity"
@@ -154,6 +162,94 @@ class Community:
 
         params = [{"id": pending_request_id}]
         self.__account._call_rpc("messaging", rpc_call, params)
+
+    def get_collectibles(self) -> pd.DataFrame:
+        """
+        Get all token collectibles from the community and the amount they are holding.
+
+        Output:
+            - DataFrame - row per `owner` per contract.
+        """
+        result: dict = self.__get_community_info()
+        info = [
+            {
+                "symbol": nft_info["symbol"],
+                "name": nft_info["name"],
+                "chain_id": int(chain_id),
+                "contract_address": contract_address,
+                "owner": collectible["ownerAddress"],
+                "balance": int(balance["balance"])
+            }
+            for nft_info in result["communityTokensMetadata"]
+            for chain_id, contract_address in nft_info["contract_addresses"].items()
+            for collectible in (self.__account._call_rpc("wallets", "getCollectibleOwnersByContractAddress", [int(chain_id), contract_address]).get("result", {}) or {}).get("owners") or []
+            for balance in collectible["tokenBalances"]
+        ]
+        info = pd.DataFrame(info)
+        info = info.groupby(info.columns[:-1].to_list()).sum().reset_index()
+        info["is_owner"] = info["owner"] == self.__account.info["wallet_address"]
+        return info
+
+    def upload_control_node(self, folder: str):
+        """
+        Upload a `data` (if using Status App) / `data` (if using `status-im/status-go`) folder.
+        NOTE: This is a destructive action, so always make sure `folder` has valid account data. If
+        the folder is
+
+        Parameters:
+            - `folder` - the Status App `data` folder if using Status App or `data` if using `status-im/status-go` Docker image
+        """
+
+        if self.role != "owner":
+            raise exceptions.CommunityPermissionError("Only community owners can perform this action...")
+        self.__account.logger.info(f"Account is owner of Community {self.name} [{self.id}]")
+
+        if not isinstance(self.__data_folder, str):
+            raise exceptions.CommunityDataFolderError()
+
+        for name, path in (("folder", folder), ("data_folder", self.__data_folder)):
+            if not os.path.isdir(path):
+                raise exceptions.CommunityDataFolderError(f"The `{name}` '{path}' does not exist / is not a folder...")
+            if not os.listdir(path):
+                raise exceptions.CommunityDataFolderError(f"The `{name}` '{path}' is empty...")
+
+        source = os.path.normcase(os.path.realpath(folder))
+        destination = os.path.normcase(os.path.realpath(self.__data_folder))
+
+        if os.path.basename(source) != os.path.basename(destination):
+            raise exceptions.CommunityControlNodeError(f"'{folder}' and '{self.__data_folder}' must end in the same folder name - Status Backend only reads the account data from a folder named '{os.path.basename(destination)}'...")
+
+        if source == destination or source.startswith(destination + os.sep) or destination.startswith(source + os.sep):
+            raise exceptions.CommunityControlNodeError(f"'{folder}' and '{self.__data_folder}' must be two separate folders - the contents of the `data_folder` are deleted during the upload...")
+
+        account_info: dict = copy.deepcopy(self.__account.info)
+        login_params = {
+            "password": account_info["password"],
+            "key_uid": account_info["key_uid"]
+        }
+        self.__account.backup()
+        self.__account.logger.info(f"Backup (.bkp) file for {account_info['key_uid']} created!")
+
+        self.__account.logout()
+        self.__account.logger.info("Account has been logged off successfully!")
+
+        # Replace the account data generated in `status-go`
+        for entry in os.listdir(destination):
+            entry_path = os.path.join(destination, entry)
+            if os.path.isdir(entry_path):
+                shutil.rmtree(entry_path)
+            else:
+                os.remove(entry_path)
+
+            self.__account.logger.warning(f"Deleted {entry_path}")
+
+        shutil.copytree(source, destination, dirs_exist_ok=True)
+        self.__account.logger.info(f"Copied data from {source} to {destination}")
+        # Error
+        self.__account.login(**login_params)
+        self.__account._load_backup()
+
+
 
     def create_channel(self, name: str, description: str, emoji: Optional[str] = None, colour: Optional[str] = None, category_name: Optional[str] = None) -> Channel:
         """
@@ -169,6 +265,7 @@ class Community:
         Output:
             - the created `Channel`
         """
+        self.__verify_admin()
         category_id = self.categories.get(category_name, {}).get("id")
         return Channel(self.__account, self.id, name=name, description=description, emoji=emoji, colour=colour, category_id=category_id)
 
@@ -179,6 +276,7 @@ class Community:
         Parameters:
             - `channel_name` - the name of the channel to delete
         """
+        self.__verify_admin()
         channel = self.__getitem__(channel_name)
         params = [self.id, channel.id.replace(self.id, "")]
         self.__account._call_rpc("messaging", "deleteCommunityChat", params)
@@ -222,6 +320,14 @@ class Community:
             for community_id, info in self.__get_community_info().get("categories", {}).items()
         }
         return mapping
+
+    @property
+    def role(self) -> str:
+        """
+        The account's community role
+        """
+        result = self.__get_community_info()
+        return self.__role_mapping[result["memberRole"]]
 
     @property
     def name(self) -> str:
@@ -403,6 +509,7 @@ class Community:
             - a list of `{"public_key": ..., "request_id": ...}` for each request,
               or an empty list if there are none
         """
+        self.__verify_admin()
         mode_mapping = {
             "pending": "pendingRequestsToJoinForCommunity",
             "declined": "declinedRequestsToJoinForCommunity"
@@ -527,3 +634,8 @@ class Community:
         """
         result = self.__get_community_info()
         return datetime.datetime.fromtimestamp(result[key]) if result[key] != 0 else None
+
+    def __verify_admin(self):
+
+        if self.role not in list(self.__role_mapping.values())[1:]:
+            raise exceptions.CommunityPermissionError()

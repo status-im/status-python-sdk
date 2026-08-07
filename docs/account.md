@@ -92,7 +92,7 @@ Where a list is accepted, the formats can even be **mixed within the same list**
 
 ![Community Settings](./images/account/public-keys.png)
 
-**Note**: An **account URL** (`https://status.app/u/...`) is not the same as a **community URL** (`https://status.app/c/...`). Community URLs identify a community and belong in the [`Community`](./community.md#communityaccount-community_idnone-urlnone) constructor.
+**Note**: An **account URL** (`https://status.app/u/...`) is not the same as a **community URL** (`https://status.app/c/...`). Community URLs identify a community and belong in the [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) constructor.
 
 ## Wallet
 
