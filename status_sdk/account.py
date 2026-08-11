@@ -416,13 +416,13 @@ class Account:
             self.logger.info("File is already in asset path")
 
         img = Image.open(asset_file_path)
-        params = [
-            self.info["key_uid"],
-            docker_file_path,
-            0,
-            0,
-            *img.size
-        ]
+        width, height = img.size
+        side = min(width, height)
+        ax = (width - side) // 2    # left edge, centered horizontally
+        ay = (height - side) // 2   # top edge, centered vertically
+        bx = ax + side  # right edge
+        by = ay + side  # bottom edg
+        params = [self.info["key_uid"], docker_file_path, ax, ay, bx, by]
         self.logger.info(f"Setting {file_path} as profile picture")
         self._call_rpc("identity", "storeIdentityImage", params)
         self.logger.info(f"Profile picture has been updated!")
