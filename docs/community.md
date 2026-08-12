@@ -1209,6 +1209,36 @@ message_id = channel.send_message("Hello from my Status bot!")
 print(f"Sent message: {message_id}")
 ```
 
+### `send_image(file_path, message=None, reply_to_message_id=None)`
+
+Send an image to the channel, with an optional text **caption**. The image renders inline in Status App, the same as attaching an image in the app. Like [`send_message`](./community.md#send_messagemessage-reply_to_message_idnone), it can be sent as a **reply** to an existing message in the channel.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `file_path` | `str` | Yes | Local full path to the image file. |
+| `message` | `str` | No | Caption sent together with the image. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone). When omitted (default), the image is sent as a standalone message. |
+
+Returns `str` - the `id` of the message that was just sent, delegated from [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone) on `Account`. It is the same identifier that appears under the `id` key in [`get_messages`](./community.md#get_messagesstart_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./community.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+message_id = channel.send_image("./meme-67.png", "Daily random meme")
+print(f"Sent image: {message_id}")
+```
+
 ### `get_messages(start_timestamp=None, end_timestamp=None)`
 
 Retrieve messages from the channel within an optional time range. Messages are returned in **descending order** (newest to oldest).

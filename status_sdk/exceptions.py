@@ -95,6 +95,9 @@ class MessageTooLongError(ValueError):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Message cannot be longer than 2000 characters...")
 
+class SendContentError(Exception):
+    pass
+
 class InvalidCurrencyError(Exception):
     pass
 
@@ -114,4 +117,7 @@ class DockerError(Exception):
     pass
 
 class SignalError(Exception):
+    pass
+
+class InvalidPathError(Exception):
     pass

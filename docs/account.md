@@ -386,7 +386,7 @@ account.unsync("6a2f9c1e-...")
 
 #### `send_message(chat_id, message, reply_to_message_id=None)`
 
-Send a text message to a specific chat. This method currently supports **text messages only**. A message can also be sent as a **reply** to an existing message in the same chat, which renders in Status App with the original message quoted above it - the same as replying to a message in the app.
+Send a text message to a specific chat. A message can also be sent as a **reply** to an existing message in the same chat, which renders in Status App with the original message quoted above it - the same as replying to a message in the app.
 
 A message can be **at most 2000 characters long**, matching the limit enforced by Status App. Sending a longer message raises a custom exception.
 
@@ -435,6 +435,82 @@ latest = messages[0]
 account.send_message(
     chat_id=chat["id"],
     message="Thanks for the update!",
+    reply_to_message_id=latest["id"]
+)
+```
+
+#### `send_image(chat_id, file_path, message=None, reply_to_message_id=None)`
+
+Send an image to a specific chat, with an optional text message. The image renders inline in Status App, the same as attaching an image in the app. Like [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone), it can be sent as a **reply** to an existing message.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `chat_id` | `str` | Yes | Identifier of the chat where the image will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
+| `file_path` | `str` | Yes | Local full path to the image file. |
+| `message` | `str` | No | Caption sent together with the image. Cannot be longer than **2000 characters**. When omitted (default), the image is sent without any text. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the image is sent as a standalone message. |
+
+Returns `str` - the `id` of the message that was just sent, exactly as [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) does, so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+# This is under the assumption you already have a contact / joined a community
+chat = account.chats[0]
+message_id = account.send_image(chat["id"], "/full/file-path/meme-67.png")
+print(f"Sent image: {message_id}")
+```
+
+Send an image with a caption:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+
+account.send_image(
+    chat_id=chat["id"],
+    file_path="/full/file-path/meme-67.png",
+    message="Du bist gut genug"
+)
+```
+
+Reply to a message with an image:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+
+# Messages are returned newest first, so this is the latest message in the chat
+messages = account.get_messages(chat["id"])
+latest = messages[0]
+
+account.send_image(
+    chat_id=chat["id"],
+    file_path="/full/file-path/meme-67.png",
+    message="Du bist gut genug",
     reply_to_message_id=latest["id"]
 )
 ```

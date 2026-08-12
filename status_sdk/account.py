@@ -659,32 +659,119 @@ class Account:
 
         return balance.copy()
 
+    def send_image(self, chat_id: str, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+        """
+        Send an image to the given chat.
+
+        Parameters:
+            - `chat_id` - the chat ID can be found in `self.chats`
+            - `file_path` - the file path of the image
+            - `message` - the message that will be sent
+            - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
+
+        Output:
+            - The message ID
+        """
+        return self.__send_content(chat_id, message, reply_to_message_id, image_path = file_path)
+
     def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send a message to the given chat.
 
         Parameters:
             - `chat_id` - the chat ID can be found in `self.chats`
-            - `message` - the message that will be sent. Currently only text messages are supported
+            - `message` - the message that will be sent
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
 
         Output:
             - The message ID
         """
+        return self.__send_content(chat_id, message, reply_to_message_id)
+
+    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None) -> str:
+        """
+        Send a message with optional media attached to the given chat.
+
+        Parameters:
+            - `chat_id` - the chat ID can be found in `self.chats`
+            - `message` - the text that will be sent. Optional when media is attached, so an image can be sent on its own
+            - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
+            - `image_path` - local path to the image to attach.
+
+        Output:
+            - The message ID
+        """
+
+        def validate_path(path: str):
+            """
+            Validate the passed in path
+            """
+            if not isinstance(path, str):
+                raise exceptions.InvalidPathError(f"Path '{path}' must be a string (got {type(path).__name__})...")
+
+            if not os.path.exists(path):
+                raise exceptions.InvalidPathError(f"Path '{path}' does not exist...")
+
+            return path
+
         self.info
+        if not message:
+            message = ""
+
         if len(message) > 2_000:
             raise exceptions.MessageTooLongError(f"Message cannot be longer than 2000 characters (got {len(message)})...")
 
-        params = [{
+        msg_params = {
             "chatId": chat_id,
             "text": message,
-            "contentType": 1, # Send message only. Future versions can have different message types (audio, image, etc.)
+            "contentType": 1, # Normal message
             "responseTo": reply_to_message_id if reply_to_message_id else ""
-        }]
+        }
+        # Content status-go key name for RPC request
+        content_key = None
+        # Non `status-im/status-go` path
+        file_path = None
+        # File path in `status-im/status-go`
+        docker_file_path = [self.__docker_asset_folder]
+        # subfolder name in ./assets/ (if necessary)
+        asset_subfolder = None
+
+        if image_path:
+            image_path = validate_path(image_path)
+            file_path = image_path
+            msg_params["contentType"] = 7
+            content_key = "imagePath"
+            asset_subfolder = "images"
+
+        if asset_subfolder:
+            docker_file_path.append(asset_subfolder)
+
+        asset_file_path = None
+        if file_path:
+            docker_file_path.append(os.path.basename(file_path))
+            asset_file_path = os.path.join(self.__assets_local_folder, asset_subfolder, os.path.basename(file_path))
+            os.makedirs(os.path.dirname(asset_file_path), exist_ok=True)
+            if os.path.exists(asset_file_path):
+                os.remove(asset_file_path)
+
+            shutil.copy(file_path, asset_file_path)
+
+        if content_key:
+            msg_params.update({
+                content_key: "/".join(docker_file_path)
+            })
+
+        if msg_params["contentType"] == 1 and len(msg_params["text"]) == 0:
+            raise exceptions.SendContentError("Cannot send empty text messages")
+
+        params = [msg_params]
         response = self._call_rpc("messaging", "sendChatMessage", params)
-        error = response.get("error", {})
+        if asset_file_path and os.path.exists(asset_file_path):
+            os.remove(asset_file_path)
+
+        error = response.get("error", {}) or {}
         if error:
-            raise exceptions.InvalidContactError(error["message"])
+            raise exceptions.SendContentError(error.get("message"))
 
         return response["result"]["messages"][0]["id"]
 

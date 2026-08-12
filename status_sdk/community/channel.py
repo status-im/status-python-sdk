@@ -199,6 +199,20 @@ class Channel:
         """
         return self.__account.send_message(self.id, message, reply_to_message_id)
 
+    def send_image(self, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+        """
+        Send a image to the group chat.
+
+        Parameters:
+            - `file_path` - the file path of the image
+            - `message` - the message that will be sent. Currently only text messages are supported
+            - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
+
+        Output:
+            - The message ID
+        """
+        return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
+
 
     def get_messages(self, start_timestamp: Optional[datetime.datetime] = None, end_timestamp: Optional[datetime.datetime] = None) -> list[dict]:
         """
