@@ -22,27 +22,27 @@ class Account:
             2: "sent",     # Request sent from the bot
             3: "received", # Request sent from another account
             4: "dismissed" # Request cancelled
+        },
+        "status": {
+            "auto": 1,
+            "dnd": 2,
+            "on": 3,
+            "off": 4
+        },
+        "prefix": {
+            "messaging": "wakuext",
+            "urls": "sharedurls",
+            "wallets": "wallet",
+            "account": "accounts",
+            "identity": "multiaccounts",
+            "settings": "settings"
         }
-    }
-    __prefix_mapping = {
-        "messaging": "wakuext",
-        "urls": "sharedurls",
-        "wallets": "wallet",
-        "account": "accounts",
-        "identity": "multiaccounts",
-        "settings": "settings"
     }
     __keccak256_selectors = {
         "transfer": "a9059cbb" # keccak256("transfer(address,uint256)")[:4]
     }
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
     __KECCAK256_ERROR = "failed to open database: failed to set `journal_mode` pragma: file is not a database"
-    __status_types = {
-        "auto": 1,
-        "dnd": 2,
-        "on": 3,
-        "off": 4
-    }
     __INSTALLATION_NAME = "python-sdk"
     def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None):
         """
@@ -618,9 +618,10 @@ class Account:
 
     @status.setter
     def status(self, new_status: str):
-        selected = self.__status_types.get(new_status.lower())
+        status_types: dict = self.__mappings["status"]
+        selected = status_types.get(new_status.lower())
         if not selected:
-            raise exceptions.InvalidUserStatusError(f"Selected status '{selected}' is invalid... Available options: {' / '.join(self.__status_types.keys())}")
+            raise exceptions.InvalidUserStatusError(f"Selected status '{selected}' is invalid... Available options: {' / '.join(status_types.keys())}")
 
         self.__status = new_status.lower()
         self._call_rpc("messaging", "setUserStatus", [selected, ""])
@@ -1654,9 +1655,10 @@ class Account:
         # Quick initialization check - RPC calls
         # can be made only after the user has logged in
         self.info
-        name = self.__prefix_mapping.get(prefix)
+        prefix_mapping: dict = self.__mappings["prefix"]
+        name = prefix_mapping.get(prefix)
         if not name:
-            raise exceptions.BackendError(f"Name {name} does not exist... Available options: {list(self.__prefix_mapping.keys())}")
+            raise exceptions.BackendError(f"Name {name} does not exist... Available options: {list(prefix_mapping.keys())}")
 
         if name == "wallet" and not self.__is_wallet_set:
             raise exceptions.WalletNotConfiguredError()
