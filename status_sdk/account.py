@@ -886,6 +886,9 @@ class Account:
         if public_key == self.info["public_key"]:
             return self
 
+        if display_name:
+            self.__validate_display_name(display_name)
+
         if not display_name:
             contacts = self.contacts
             display_name = contacts.get(public_key, {}).get("display_name")
@@ -926,6 +929,26 @@ class Account:
         params = [public_key]
         self._call_rpc("messaging", "removeContact", params)
         return True
+
+    def block_contact(self, public_key: str):
+        """
+        Block a contact.
+
+        Parameters:
+            - `public_key` - the contact's public key / chat key / URL
+        """
+        public_key = self.get_public_key(public_key)
+        self._call_rpc("messaging", "blockContact", [public_key])
+
+    def unblock_contact(self, public_key: str):
+        """
+        Unblock a contact.
+
+        Parameters:
+            - `public_key` - the contact's public key / chat key / URL
+        """
+        public_key = self.get_public_key(public_key)
+        self._call_rpc("messaging", "unblockContact", [public_key])
 
     def get_public_key(self, value: str) -> str:
         """

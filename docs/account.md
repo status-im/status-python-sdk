@@ -774,6 +774,77 @@ removed = account.remove_contact(contact["public_key"])
 print(f"Removed: {removed}")
 ```
 
+#### `block_contact(public_key)`
+
+Block a user, the same as **Block user** in Status App. Once blocked, the Status Backend stops surfacing that user's messages and contact requests to the account.
+
+Just like [`add_contact`](./account.md#add_contactpublic_key-display_namenone), the contact can be identified in three different ways:
+
+| Format | Example | Key in [`contacts`](./account.md#contacts) |
+|-------|--------|-----------------|
+| **Public key** | `0x04ebcad...` | `public_key` |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` |
+| **Account URL** | `https://status.app/u/...` | `url` |
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `public_key` | `str` | Yes | The contact's Status **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`). The value is normalised with [`get_public_key`](./account.md#get_public_keyvalue) before the call. |
+
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+contact = list(account.contacts.values())[0]
+account.block_contact(contact["public_key"])
+```
+
+Block a user from a chat key:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+account.block_contact("zQ3shYSHp7...")
+```
+
+#### `unblock_contact(public_key)`
+
+Unblock a previously [blocked](./account.md#block_contactpublic_key) user, the same as **Unblock user** in Status App. Their messages and contact requests reach the account again. The value is accepted in the same three formats as [`block_contact`](./account.md#block_contactpublic_key) and normalised with [`get_public_key`](./account.md#get_public_keyvalue).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `public_key` | `str` | Yes | The contact's Status **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`). |
+
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+account.unblock_contact("0x04ebcad...")
+
+# Unblocking alone does not make them a contact again
+account.add_contact("0x04ebcad...", display_name="status-enjoyer")
+```
+
 #### `get_public_key(value)`
 
 Normalise any of the three account identifiers into a **public key** (`0x...`). This normalisation is used internally by the library as well, so methods that accept a contact identifier work the same regardless of which format is passed.
