@@ -786,11 +786,27 @@ class Account:
             - if `True` then the message was deleted. If `False` then the message was not deleted due to permissions.
         """
         self.info
-        response = self._call_rpc("messaging", "deleteMessageAndSend", [id])
-        error: dict = response.get("error", {})
-        if error:
-            self.logger.warning(f"Could not delete Message {id}... {error.get('message')}")
-        return not bool(error)
+
+        exists , is_owner = self.__search_message(id)
+        if not exists:
+            return False
+
+        rpc_methods = [
+            "deleteMessageAndSend" if is_owner else None,
+            "deleteMessage"
+        ]
+        errors = []
+        for rpc_method in rpc_methods:
+            if not rpc_method:
+                continue
+            response = self._call_rpc("messaging", rpc_method, [id])
+            error: dict = response.get("error", {})
+            if error:
+                self.logger.warning(f"[{rpc_method}] Could not delete Message {id}... {error.get('message')}")
+
+            errors.append(bool(error))
+
+        return not any(errors) if errors else False
 
     def listen_contact_requests(self) -> Generator:
         """
@@ -1737,3 +1753,28 @@ class Account:
 
         if not re.fullmatch(r"[A-Za-z0-9 _-]+", name):
             raise exceptions.InvalidDisplayNameError("Display name can contain only A-Z, 0-9, hyphens (-), underscores (_) and spaces.")
+
+    def __search_message(self, id: str) -> tuple[bool, bool]:
+        """
+        Look up a message by its ID. Useful for permission checks
+        before acting on a message.
+
+        Parameters:
+            - `id` - the `id` of the message
+
+        Output:
+            - `exists` - `True` if the message exists
+            - `is_owner` - `True` if the current account has sent the message
+        """
+        response = self._call_rpc("messaging", "messageByMessageID", [id])
+        is_owner = False
+        exists = False
+
+        error = response.get("error")
+        if not error:
+            result: dict = response["result"]
+            is_owner = result["from"] == self.info["public_key"]
+            exists = True
+
+        return exists, is_owner
+
