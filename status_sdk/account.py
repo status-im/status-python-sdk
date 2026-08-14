@@ -120,8 +120,6 @@ class Account:
         self.__signal = Signal(self.__urls["socket"]["signals"])
         # Initialize profile
         self.available_accounts
-        # In case if there is a hanging logged in session
-        self.logout()
 
     def login(self, password: str, key_uid: Optional[str] = None, name: Optional[str] = None, mnemonic: Optional[str] = None, infura_token: Optional[str] = None, alchemy_token: Optional[str] = None, coingecko_api_key: Optional[str] = None):
         """
@@ -130,9 +128,9 @@ class Account:
 
         Parameters:
             - `password` - your Status password
-            - `key_uid` - your key unique identifier. If not provided `display_name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
+            - `key_uid` - your key unique identifier. If not provided `name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
             - `name` - your Status display name or ENS. Use `name` and `password` parameter combination if you have a 1 to 1 mapping (ENS has a unique `key_uid`)
-            - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `display_name` to recover an account
+            - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `name` to recover an account
             - `infura_token` - https://www.infura.io/ RPC token to allow Status Backend to use a wallet
             - `alchemy_token` - https://alchemy.com/ RPC token to allow Status Backend to use a wallet
             - `coingecko_api_key` - https://www.coingecko.com/ API key to allow Status Backend to use a wallet
@@ -189,8 +187,6 @@ class Account:
             params["mnemonic"] = mnemonic
             self.logger.info(f"Restoring account for given mnemonics")
 
-        self.logout()
-
         # Wallet usage is broken down into 3 components:
         # - transactions
         # - prices
@@ -211,6 +207,15 @@ class Account:
         if alchemy_token and coingecko_api_key and infura_token:
             self.__is_wallet_set = True
 
+        if url_key == "login":
+            self.__info = self.__get_account_details(password, key_uid, mnemonic)
+
+            if self.__info:
+                self.logger.info("Account already logged in!")
+                return self
+
+        self.logout()
+
         url = self.__urls["http"][url_key]
         params.update({
             "logEnabled": True,
@@ -221,9 +226,7 @@ class Account:
         signal_event = self.__signal.get("node.login")
         # Password must be hashed if the `data` folder has been copied over from another Status instance (`status-im/status-go` or Status App)
         if signal_event["is_error"] and signal_event["error_message"] == self.__KECCAK256_ERROR:
-            h = keccak.new(digest_bits=256)
-            h.update(params["password"].encode())
-            params["password"] = "0x" + h.hexdigest().lower()
+            params["password"] = self.__hash_password(params["password"])
             response = requests.post(url, json=params)
             signal_event = self.__signal.get("node.login")
 
@@ -232,28 +235,10 @@ class Account:
 
         self.logger.info("Successfully logged in!")
         event: dict = signal_event["event"]["settings"]
-        ens_info: list[dict] = signal_event["event"].get("ensUsernames", [])
-        self.__info = {
-            "public_key": event["public-key"],
-            "url": None,
-            "emojis": event["emojiHash"],
-            "key_uid": event["key-uid"],
-            "compressed_key": event["compressedKey"],
-            "mnemonic": event.get("mnemonic", mnemonic),
-            "display_name": event["display-name"],
-            "bio": event.get("bio", ""),
-            "password": password,
-            "wallet_address": event["dapps-address"],
-            "ens": {
-                "preferred_name": event.get("preferred-name"),
-                "usernames": ens_info
-            },
-            "installation_id": None,
-            "logged_in_timestamp": datetime.datetime.now()
-        }
-        self.__info["url"] = self._call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result")
-        result = self._call_rpc("settings", "getSettings").get("result") or {}
-        self.__info["installation_id"] = result.get("installation-id")
+        if not key_uid:
+            key_uid = event["key-uid"]
+
+        self.__info = self.__get_account_details(password, key_uid, mnemonic)
         # Messenger can be activated only when logged in
         self.__start_messenger()
         if is_recovery:
@@ -1599,11 +1584,6 @@ class Account:
         and after running `python`
         """
         try:
-            self.logout()
-        except Exception:
-            pass
-
-        try:
             self.__signal.close(None)
         except Exception:
             pass
@@ -1780,3 +1760,71 @@ class Account:
 
         return exists, is_owner
 
+    def __hash_password(self, password: str) -> str:
+        """
+        Hash a password the way Status App does before it reaches Status Backend.
+
+        NOTE: Accounts created through Status App store the hash rather than the
+        password itself, so a `data` folder copied from it only accepts this form.
+
+        Parameters:
+            - `password` - your Status password
+
+        Output:
+            - the keccak256 hash of the password
+        """
+        h = keccak.new(digest_bits=256)
+        h.update(password.encode())
+        return "0x" + h.hexdigest().lower()
+
+    def __get_account_details(self, password: str, key_uid: str, mnemonic: Optional[str] = None) -> dict:
+        """
+        Check if the current account is already logged in or not
+
+        Parameters:
+            - `password` - your Status password
+            - `key_uid` - your key unique identifier. If not provided `display_name` will be used to fetch it. This means that each `display_name` can be linked to one `key_uid`
+            - `mnemonic` - the mnemonic when creating an account. Use this field with `password` and `name` to recover an account
+
+        Output:
+            - data for `self.__info`
+        """
+        self.__info = {None}
+        response = self._call_rpc("settings", "getSettings")
+        self.__info = {}
+
+        # No logged in session
+        if response.get("error"):
+            return {}
+
+        event: dict = response["result"]
+        # Another account is logged in
+        if key_uid != event["key-uid"]:
+            return {}
+
+        self.__info = {None}
+        correct_password = self._call_rpc("account", "verifyPassword", [password]).get("result") or False
+        if not correct_password:
+            # Accounts coming from Status App / `status-im/status-go` store the hashed password
+            correct_password = self._call_rpc("account", "verifyPassword", [self.__hash_password(password)]).get("result") or False
+
+        if not correct_password:
+            self.__info = {}
+            raise exceptions.InvalidPasswordError(f"The password for account '{key_uid}' is incorrect...")
+
+        info = {
+            "public_key": event["public-key"],
+            "url": self._call_rpc("urls", "shareUserURLWithData", [event["public-key"]]).get("result"),
+            "emojis": event["emojiHash"],
+            "key_uid": event["key-uid"],
+            "compressed_key": event["compressedKey"],
+            "mnemonic": event.get("mnemonic", mnemonic),
+            "display_name": event["display-name"],
+            "bio": event.get("bio", ""),
+            "password": password,
+            "wallet_address": event["dapps-address"],
+            "installation_id": event["installation-id"],
+            "logged_in_timestamp": datetime.datetime.now()
+        }
+        self.__info = {}
+        return info

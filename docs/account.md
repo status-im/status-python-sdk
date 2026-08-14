@@ -1406,7 +1406,6 @@ Provides information about the currently logged-in account. If `login()` has not
 | `display_name` | `str` | Display name of the account. |
 | `password` | `str` | Password used to encrypt the account locally. |
 | `wallet_address` | `str` | Ethereum wallet address associated with the account. |
-| `ens` | `dict` | The account's [ENS](https://status.app/help/profile/transfer-your-ens-name-to-status) details. Contains `preferred_name` (`str` or `None`) - the ENS name the account has chosen to display - and `usernames` (`list[dict]`) - every ENS username registered to the account. Both are empty / `None` when no ENS name is set. |
 | `installation_id` | `str` | Id of **this** device's installation. Pass it to another device's [`sync`](./account.md#syncinstallation_id-namenone) to pair the two. `None` if the backend did not return one. |
 | `logged_in_timestamp` | `datetime.datetime` | Timestamp when the account successfully logged in. |
 

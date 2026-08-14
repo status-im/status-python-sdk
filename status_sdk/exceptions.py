@@ -7,6 +7,10 @@ class NotLoggedInError(Exception):
     def __init__(self):
         super().__init__("Make sure you are logged in to your Status account with login() first...")
 
+class InvalidPasswordError(Exception):
+    def __init__(self, msg: Optional[str] = None):
+        super().__init__(msg or "The provided password is incorrect for this account...")
+
 class WalletNotConfiguredError(Exception):
     def __init__(self, msg: Optional[str] = None):
         super().__init__(msg or "Cannot use this wallet method without setting `infura_token`, `alchemy_token` and `coingecko_api_key` when calling `login`.")
