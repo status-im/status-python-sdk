@@ -813,7 +813,7 @@ class Account:
             if "chats" in event or "messages" in event:
                 yield message
 
-    def get_messages(self, chat_id: str, start_timestamp: Optional[datetime.datetime] = None, end_timestamp: Optional[datetime.datetime] = None) -> list[dict]:
+    def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """
         Get all of the messages in the given start and end timestamps.
         Messages are returned in descending order (newest to oldest).
@@ -821,12 +821,14 @@ class Account:
 
         Parameters:
             - `chat_id` - the chat ID can be found in `self.chats`
-            - `start_timestamp` - the start timestamp for message extraction. If not provided all early messages will be fetched.
-            - `end_timestamp` - the end timestamp for message extraction. If not provided all latest messages will be fetched.
+            - `start_timestamp` - the start timestamp for message extraction. If not provided all early messages will be fetched. Can be a `datetime.datetime` or a string like `2026-08-11 22:57:51.134000` / `2026-08-11 22:57` / `2026-08-11`
+            - `end_timestamp` - the end timestamp for message extraction. If not provided all latest messages will be fetched. Can be a `datetime.datetime` or a string like `2026-08-11 22:57:51.134000` / `2026-08-11 22:57` / `2026-08-11`
 
         Output:
             - All messages within the given range
         """
+        start_timestamp = self.__to_datetime(start_timestamp)
+        end_timestamp = self.__to_datetime(end_timestamp)
         # NOTE: Order of params matters when making the RCP call
         params = {
             "chat_id": chat_id,
@@ -1706,6 +1708,42 @@ class Account:
         s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', name)
         s2 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1)
         return s2.lower()
+
+    def __to_datetime(self, timestamp: Union[str, datetime.datetime, datetime.date, pd.Timestamp, None]) -> Optional[datetime.datetime]:
+        """
+        Convert a timestamp `str` / `datetime.date` into a `datetime.datetime`.
+
+        Parameters:
+            - `timestamp` - the timestamp, e.g. `2026-08-11 22:57:51.134000`, `2026-08-11 22:57`, `2026-08-11` or `datetime.date`. A `datetime.datetime` / `None` is returned as it is
+
+        Output:
+            - the `datetime.datetime` of the `timestamp`
+        """
+        if timestamp is None or isinstance(timestamp, datetime.datetime):
+            return timestamp
+
+        if isinstance(timestamp, datetime.date):
+            return datetime.datetime(timestamp.year, timestamp.month, timestamp.day)
+
+        if isinstance(timestamp, pd.Timestamp):
+            timestamp = str(timestamp)
+
+        if not isinstance(timestamp, str):
+            raise exceptions.InvalidTimestampError(f"Expected a `str` or a `datetime.datetime`, got `{type(timestamp).__name__}`...")
+
+        # Accepted timestamp formats, tried from the most to the least precise
+        formats = [
+            "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M", "%Y-%m-%d %H", "%Y-%m-%d"
+        ]
+        value = timestamp.strip().replace("T", " ")
+        for current_format in formats:
+            try:
+                return datetime.datetime.strptime(value, current_format)
+            except ValueError:
+                continue
+
+        raise exceptions.InvalidTimestampError(f"`{timestamp}` is not a valid timestamp. Supported formats: {', '.join(formats)}")
 
     def __validate_display_name(self, name: str):
         """

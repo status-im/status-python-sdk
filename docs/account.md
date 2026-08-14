@@ -526,8 +526,8 @@ Messages can be fetched from:
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `chat_id` | `str` | Yes | Identifier of the chat. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
-| `start_timestamp` | `datetime.datetime` | No | The earliest timestamp to include. Messages older than this value will stop the fetch process. |
-| `end_timestamp` | `datetime.datetime` | No | The latest timestamp to include. Messages newer than this value will be skipped. |
+| `start_timestamp` | `str`<br>`datetime.date`<br>`datetime.datetime`<br>`pandas.Timestamp` | No | The earliest timestamp to include. Messages older than this value will stop the fetch process. |
+| `end_timestamp` | `str`<br>`datetime.date`<br>`datetime.datetime`<br>`pandas.Timestamp` | No | The latest timestamp to include. Messages newer than this value will be skipped. |
 
 Returns `list[dict]` containing message objects. Timestamp fields returned by the backend are automatically converted into `datetime.datetime` objects.
 
@@ -554,6 +554,20 @@ for message in messages:
 ```
 
 **Note**: If there are missing messages in a chat that might be because the node (Status Backend) has not received them yet. They may appear later.
+
+**Timestamps**
+
+Both timestamps also accept a plain `str`, so a range can be written out without building a `datetime.datetime` first. The **time is optional** and can be given with any precision - the missing parts default to zero, meaning that `2026-08-11` is read as `2026-08-11 00:00:00`. A `datetime.date` carries no time at all and is moved to midnight the same way.
+
+| Format | Example |
+|-----|-----|
+| `YYYY-MM-DD HH:MM:SS.ffffff` | `2026-08-11 22:57:51.134000` |
+| `YYYY-MM-DD HH:MM:SS` | `2026-08-11 22:57:51` |
+| `YYYY-MM-DD HH:MM` | `2026-08-11 22:57` |
+| `YYYY-MM-DD HH` | `2026-08-11 22` |
+| `YYYY-MM-DD` | `2026-08-11` |
+
+Both `T` and a space are accepted as the date / time separator, so `2026-08-11T22:57:51` and `2026-08-11 22:57:51` are the same timestamp.
 
 #### `delete_message(id)`
 

@@ -292,8 +292,10 @@ Retrieve messages from the group chat within an optional time range. Messages ar
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `start_timestamp` | `datetime.datetime` | No | The earliest timestamp to include. Messages older than this value will stop the fetch process. |
-| `end_timestamp` | `datetime.datetime` | No | The latest timestamp to include. Messages newer than this value will be skipped. |
+| `start_timestamp` | `str`<br>`datetime.date`<br>`datetime.datetime`<br>`pandas.Timestamp` | No | The earliest timestamp to include. Messages older than this value will stop the fetch process. |
+| `end_timestamp` | `str`<br>`datetime.date`<br>`datetime.datetime`<br>`pandas.Timestamp` | No | The latest timestamp to include. Messages newer than this value will be skipped. |
+
+Both timestamps accept the same values as [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) on `Account`, so a range can be written as a plain `str` - for example `2026-08-11 22:57:51.134000`, `2026-08-11 22:57` or `2026-08-11`.
 
 Returns `list[dict]` containing message objects. Timestamp fields returned by the backend are automatically converted into `datetime.datetime` objects.
 

@@ -1,6 +1,7 @@
 from .account import Account
 from . import exceptions
 from typing import Union, Optional
+import pandas as pd
 import re, datetime
 
 class GroupChat:
@@ -84,15 +85,15 @@ class GroupChat:
         return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
 
 
-    def get_messages(self, start_timestamp: Optional[datetime.datetime] = None, end_timestamp: Optional[datetime.datetime] = None) -> list[dict]:
+    def get_messages(self, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """
         Get all of the messages in the given start and end timestamps.
         Messages are returned in descending order (newest to oldest).
         Messages can be fetched for removed contacts as well.
 
         Parameters:
-            - `start_timestamp` - the start timestamp for message extraction. If not provided all early messages will be fetched.
-            - `end_timestamp` - the end timestamp for message extraction. If not provided all latest messages will be fetched.
+            - `start_timestamp` - the start timestamp for message extraction. If not provided all early messages will be fetched. Can be a `datetime.datetime` or a string like `2026-08-11 22:57:51.134000` / `2026-08-11 22:57` / `2026-08-11`
+            - `end_timestamp` - the end timestamp for message extraction. If not provided all latest messages will be fetched. Can be a `datetime.datetime` or a string like `2026-08-11 22:57:51.134000` / `2026-08-11 22:57` / `2026-08-11`
 
         Output:
             - All messages within the given range

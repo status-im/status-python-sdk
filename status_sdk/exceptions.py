@@ -125,3 +125,6 @@ class SignalError(Exception):
 
 class InvalidPathError(Exception):
     pass
+
+class InvalidTimestampError(ValueError):
+    pass
