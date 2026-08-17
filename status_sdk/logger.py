@@ -4,12 +4,12 @@ import logging
 class Logger:
     instance: Optional[logging.Logger] = None
 
-    def __new__(cls) -> logging.Logger:
+    def __new__(cls, name: str = "status-bot") -> logging.Logger:
 
         if cls.instance:
-            return cls.instance
+            return logging.getLogger(name)
 
-        cls.instance = logging.getLogger("status-bot")
+        cls.instance = logging.getLogger(name)
         cls.instance.setLevel(logging.INFO)
         cls.instance.propagate = False
 

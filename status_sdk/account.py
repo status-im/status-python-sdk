@@ -1731,19 +1731,11 @@ class Account:
         if not isinstance(timestamp, str):
             raise exceptions.InvalidTimestampError(f"Expected a `str` or a `datetime.datetime`, got `{type(timestamp).__name__}`...")
 
-        # Accepted timestamp formats, tried from the most to the least precise
-        formats = [
-            "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%d %H:%M", "%Y-%m-%d %H", "%Y-%m-%d"
-        ]
-        value = timestamp.strip().replace("T", " ")
-        for current_format in formats:
-            try:
-                return datetime.datetime.strptime(value, current_format)
-            except ValueError:
-                continue
+        try:
+            return datetime.datetime.fromisoformat(timestamp)
+        except:
+            raise exceptions.InvalidTimestampError(f"`{timestamp}` is not a valid timestamp... Please make sure the input is in ISO 8601 format (https://www.iso.org/iso-8601-date-and-time-format.html).")
 
-        raise exceptions.InvalidTimestampError(f"`{timestamp}` is not a valid timestamp. Supported formats: {', '.join(formats)}")
 
     def __validate_display_name(self, name: str):
         """
