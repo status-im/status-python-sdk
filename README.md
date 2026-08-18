@@ -141,9 +141,8 @@ The compose file reads three variables from the environment. All of them have a 
 | Variable | Default | Description |
 |-----|-----|-------------|
 | `STATUS_GO_COMMIT` | `develop` | The [`status-im/status-go`](https://github.com/status-im/status-go/) git ref (commit SHA, branch or tag) to build from. |
-| `PLATFORM` | `linux/amd64` | The platform the image is built for. |
-| `DATA_DIR` | `./data` | The folder on your machine where Status Backend keeps the accounts it creates. Use an absolute path, or one starting with `./` - a bare relative path is read as a Docker volume name. Required for a community [control node](./docs/community.md#control-node). |
+| `STATUS_GO_PLATFORM` | `linux/amd64` | The platform the image is built for. |
 
 ```
-STATUS_GO_COMMIT=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 PLATFORM=linux/amd64 DATA_DIR=./data docker compose -f status_sdk/docker-compose.yaml up -d
+STATUS_GO_COMMIT=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 PLATFORM=linux/amd64 docker compose -f status_sdk/docker-compose.yaml up -d
 ```
