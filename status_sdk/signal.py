@@ -102,13 +102,18 @@ class Signal:
         Listen continuously for Status Backend signals
         """
         signal: dict = json.loads(signal)
-        if signal["type"] != self.__signal_type:
+
+        if isinstance(self.__signal_type, str) and self.__signal_type != signal["type"]:
+            return
+
+        if isinstance(self.__signal_type, list) and signal["type"] not in self.__signal_type:
             return
 
         event: Optional[dict] = signal.get("event", {}) or {}
         data = {
             "timestamp": datetime.datetime.fromtimestamp(signal["timestamp"]),
             "is_error": not isinstance(event.get("error"), type(None)),
+            "type": signal["type"],
             "error_message": event.get("error"),
             "event": event
         }
@@ -124,13 +129,16 @@ class Signal:
         if self.__thread.is_alive():
             self.__thread.join(1)
 
-    def listen(self, signal_type: str):
+    def listen(self, signal_type: Optional[Union[str, list[str]]] = None):
         """
         Listen for a specific Signal forever
 
         Parameters:
             - `signal_type` - the "type" as it is in Status Backend
         """
+        if isinstance(signal_type, list) and len(signal_type) == 0:
+            signal_type = None
+
         self.__signal_type = signal_type
         ws = websocket.WebSocketApp(
             self.__url,
