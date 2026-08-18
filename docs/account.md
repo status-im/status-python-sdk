@@ -647,6 +647,27 @@ for request in account.listen_contact_requests():
     rprint(Pretty(request))
 ```
 
+#### `listen_message_mentions()`
+
+Listen for `@0x...` mentions **in real time**. 
+
+```python
+from status_sdk import Account
+# For terminal readability only
+from rich import print as rprint
+from rich.pretty import Pretty
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for mention in account.listen_message_mentions():
+    rprint(Pretty(mention))
+```
+
 #### `add_contact(public_key, display_name=None)`
 
 Send a contact request or approve an existing contact request. The mode depends on how the contact shows up in [`contacts`](./account.md#contacts). Best practice would be to look at the the following [`contacts`](./account.md#contacts) keys:

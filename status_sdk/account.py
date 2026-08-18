@@ -804,6 +804,23 @@ class Account:
             if category == "contactRequest":
                 yield message
 
+    def listen_message_mentions(self) -> Generator:
+        """
+        Listen for `@0xpublic-key` mentions. Can be used for real time processing.
+        """
+        mention_everyone = "@0x00001"
+        account_mention = f"@{self.info['public_key']}"
+
+        for message in self.signal.listen("local-notifications"):
+            event: dict = message.get("event", {})
+            category = event.get("category")
+            if category != "newMessage":
+                continue
+
+            current_text: str = event["body"]["message"]["text"]
+            if mention_everyone in current_text or account_mention in current_text:
+                yield message
+
     def listen_messages(self) -> Generator:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
