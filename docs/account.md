@@ -1771,7 +1771,6 @@ Returns `list[dict]` where each element represents a community.
 | `verified` | `bool` | Whether the community is verified. |
 | `tags` | `list[str]` | Tags associated with the community. |
 | `is_member` | `bool` | Whether the account is currently a member of the community. |
-| `joined` | `bool` | Whether the account has joined the community. |
 | `joined_timestamp` | `datetime.datetime`<br>`None` | Timestamp when the account joined the community. `None` when the account has not joined. |
 | `requested_timestamp` | `datetime.datetime`<br>`None` | Timestamp when the join request was submitted. `None` when no request was made. |
 | `encrypted` | `bool` | Whether the community messaging is encrypted. |

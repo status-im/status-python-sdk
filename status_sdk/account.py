@@ -490,7 +490,6 @@ class Account:
                 "verified": community["verified"],
                 "tags": community["tags"],
                 "is_member": community["isMember"],
-                "joined": community["verified"],
                 "joined_timestamp": to_datetime("joinedAt", community),
                 "requested_timestamp": to_datetime("requestedToJoinAt", community),
                 "encrypted": community["encrypted"],
