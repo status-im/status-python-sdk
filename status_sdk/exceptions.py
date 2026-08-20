@@ -74,6 +74,13 @@ class InvalidCommunityChannelColourError(ValueError):
 class InvalidCommunityChannelEmojiError(ValueError):
     pass
 
+class ChatNotFoundError(Exception):
+    pass
+
+class EmojiNotFoundError(Exception):
+    def __init__(self, shortname: str):
+        super().__init__(f"Emoji shortcode '{shortname}' does not exist...")
+
 class GroupChatCreationError(Exception):
     pass
 

@@ -673,6 +673,40 @@ class Account:
         """
         return self.__send_content(chat_id, message, reply_to_message_id)
 
+
+    def send_emoji_reaction(self, message_id: str, emoji_shortname: str, chat_id: Optional[str] = None):
+        """
+        Set / unset emoji reaction for a message.
+
+        Parameters:
+            - `message_id`- the `id` of the message
+            - `emoji_shortname` - the emoji shortname as in Status App
+            - `chat_id` - the `id` of the chat. If not provided it will be found from `message_id`
+        """
+        if not emoji_shortname.startswith(":"):
+            emoji_shortname = f":{emoji_shortname}"
+
+        if not emoji_shortname.endswith(":"):
+            emoji_shortname += ":"
+
+        emoji_unicode = constants.EMOJI_UNICODES.get(emoji_shortname)
+        if not emoji_unicode:
+            raise exceptions.EmojiNotFoundError(emoji_shortname)
+
+        if not chat_id:
+            response = self._call_rpc("messaging", "messageByMessageID", [message_id])
+            error = response.get("error", {}) or {}
+            if error:
+                raise exceptions.ChatNotFoundError(error.get("message"))
+
+            chat_id: str = response["result"]["localChatId"]
+
+        params = [chat_id, message_id, emoji_unicode]
+        response = self._call_rpc("messaging", "sendEmojiReaction", params)
+        error = response.get("error", {}) or {}
+        if error:
+            raise exceptions.ChatNotFoundError(error.get("message"))
+
     def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None) -> str:
         """
         Send a message with optional media attached to the given chat.

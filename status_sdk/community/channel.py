@@ -214,6 +214,15 @@ class Channel:
         """
         return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
 
+    def send_emoji_reaction(self, message_id: str, emoji_shortname: str):
+        """
+        Set / unset emoji reaction for a message in the channel.
+
+        Parameters:
+            - `message_id` - the `id` of the message, as it appears in `self.get_messages()`
+            - `emoji_shortname` - the emoji shortname as in Status App, with or without the surrounding colons
+        """
+        self.__account.send_emoji_reaction(message_id, emoji_shortname, self.id)
 
     def get_messages(self, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """

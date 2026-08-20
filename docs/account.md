@@ -515,6 +515,42 @@ account.send_image(
 )
 ```
 
+#### `send_emoji_reaction(message_id, emoji_shortname, chat_id=None)`
+
+React to a message with an emoji, the same as reacting to a message in Status App. The reaction is a **toggle** - calling the method again with the same emoji on the same message removes it, so the same call both sets and unsets the reaction.
+
+Emojis are identified by their **shortname**, exactly as Status App names them (`:thumbsup:`, `:heart_eyes:`). The surrounding colons are optional - `thumbsup` and `:thumbsup:` are the same emoji - and the full list of supported shortnames is documented under [Emojis](./utils.md#emojis).
+
+Passing `chat_id` is purely an **optimisation**. Without it the chat has to be resolved from the message first, which costs one extra round trip to the Status Backend per reaction - worth avoiding when reacting to many messages in a chat that is already known, such as inside a [`listen_messages`](./account.md#listen_messages) loop. A `chat_id` that does not match the message is rejected by the backend and raises a custom exception, so pass it only when it is certain.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), from the `lastMessage` of a [`listen_messages`](./account.md#listen_messages) event, or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) / [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone). |
+| `emoji_shortname` | `str` | Yes | The emoji shortname as in Status App, with or without the surrounding colons. See [Emojis](./utils.md#emojis) for all supported values. |
+| `chat_id` | `str` | No | Identifier of the chat the message belongs to, as found in the [`chats`](./account.md#chats) property. When omitted (default), it is resolved from `message_id` with an extra call to the Status Backend. |
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+
+# Messages are returned newest first, so this is the latest message in the chat
+messages = account.get_messages(chat["id"])
+latest = messages[0]
+
+account.send_emoji_reaction(latest["id"], ":thumbsup:")
+
+# Reacting with the same emoji again removes the reaction
+account.send_emoji_reaction(latest["id"], ":thumbsup:")
+```
+
 #### `get_messages(chat_id, start_timestamp=None, end_timestamp=None)`
 
 Retrieve messages from the specified chat within an optional time range. Messages are returned in **descending order** (newest to oldest). The method automatically paginates through the backend until all messages in the specified range are collected. This method is ideal for backfilling, [batch processing](https://aws.amazon.com/what-is/batch-processing/) or [micro batch processing](https://www.dremio.com/wiki/micro-batch-processing/).
