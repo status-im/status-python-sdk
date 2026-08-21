@@ -829,12 +829,20 @@ class Account:
 
     def listen_contact_requests(self) -> Generator:
         """
-        Listen for new contact requests. Can be used for real time processing.
+        Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
         """
-        for message in self.signal.listen("local-notifications"):
+        accepted_contact_request = re.compile(r"@(0x04[0-9a-fA-F]{128}) accepted your contact request")
+        for message in self.signal.listen(["local-notifications", "messages.new"]):
             event: dict = message.get("event", {})
-            category = event.get("category")
-            if category == "contactRequest":
+
+            if message["type"] == "local-notifications":
+                category = event.get("category")
+                if category == "contactRequest":
+                    message["request_type"] = "incoming"
+                    yield message
+
+            if message["type"] == "messages.new" and accepted_contact_request.search(str(message)):
+                message["request_type"] = "accepted"
                 yield message
 
     def listen_message_mentions(self) -> Generator:

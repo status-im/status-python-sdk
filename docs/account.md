@@ -664,7 +664,12 @@ for msg in account.listen_messages():
 
 #### `listen_contact_requests()`
 
-Listen for incoming contact requests **in real time**.
+Listen for contact requests **in real time**. Both **incoming** contact requests sent to the account and contact requests sent by the account that were **accepted** by the other user are yielded. Every yielded event carries a `request_type` key that tells the two apart:
+
+| `request_type` | Meaning |
+|-----|-----|
+| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-display_namenone). |
+| `accepted` | Another user accepted a contact request that the account had sent. The contact is now mutual. |
 
 ```python
 from status_sdk import Account
@@ -681,6 +686,25 @@ account.login(**params)
 
 for request in account.listen_contact_requests():
     rprint(Pretty(request))
+```
+
+Handle each type separately:
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for request in account.listen_contact_requests():
+    if request["request_type"] == "incoming":
+        print("New contact request received")
+    elif request["request_type"] == "accepted":
+        print("Contact request was accepted")
 ```
 
 #### `listen_message_mentions()`
