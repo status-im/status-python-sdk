@@ -645,9 +645,6 @@ Listen for new incoming messages **in real time**. This method yields raw messag
 
 ```python
 from status_sdk import Account
-# For terminal readability only
-from rich import print as rprint
-from rich.pretty import Pretty
 
 account = Account()
 params = {
@@ -657,7 +654,7 @@ params = {
 account.login(**params)
 
 for msg in account.listen_messages():
-    rprint(Pretty(msg))
+    print(msg)
 ```
 
 **Note**: If you receive multiple messages at once, `contacts` and `chats` will grow.
@@ -673,9 +670,6 @@ Listen for contact requests **in real time**. Both **incoming** contact requests
 
 ```python
 from status_sdk import Account
-# For terminal readability only
-from rich import print as rprint
-from rich.pretty import Pretty
 
 account = Account()
 params = {
@@ -685,7 +679,7 @@ params = {
 account.login(**params)
 
 for request in account.listen_contact_requests():
-    rprint(Pretty(request))
+    print(request)
 ```
 
 Handle each type separately:
@@ -713,9 +707,6 @@ Listen for `@0x...` mentions **in real time**.
 
 ```python
 from status_sdk import Account
-# For terminal readability only
-from rich import print as rprint
-from rich.pretty import Pretty
 
 account = Account()
 params = {
@@ -725,7 +716,7 @@ params = {
 account.login(**params)
 
 for mention in account.listen_message_mentions():
-    rprint(Pretty(mention))
+    print(mention)
 ```
 
 #### `add_contact(public_key, display_name=None)`

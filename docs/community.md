@@ -534,11 +534,11 @@ community.delete_channel("announcements")
 
 Listen for join requests to the community **in real time**.
 
-Returns a `Generator` that yields one `dict` per request event:
+Returns a `Generator` that yields one `models.CommunityRequest` **dataclass** per request event, so the fields are reached as attributes (`request.state`) rather than dictionary keys:
 
-| Key | Type | Description |
+| Attribute | Type | Description |
 |----|----|-------------|
-| `request_id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
+| `id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
 | `state` | `str` | The state the request moved into - see the table below. |
 | `public_key` | `str` | Public key of the requesting member. |
 
@@ -568,12 +568,12 @@ community = Community(account, url=url)
 
 # Auto-accept everyone who asks to join
 for request in community.listen_requests():
-    print(f"{request['public_key']}\t{request['state']}")
+    print(f"{request.public_key}\t{request.state}")
 
-    if request["state"] != "pending":
+    if request.state != "pending":
         continue
 
-    community.accept(request["request_id"])
+    community.accept(request.id)
     community["general"].send_message("Welcome to the community!")
 ```
 

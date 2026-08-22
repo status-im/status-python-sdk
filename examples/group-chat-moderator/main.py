@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from status_sdk import Account, GroupChat, launch_docker_container
+from status_sdk import Account, GroupChat, launch_docker_container, models
 from detoxify import Detoxify
 import os, threading, torch
 
@@ -7,16 +7,16 @@ import os, threading, torch
 # read-modify-write of a member's warning count must be atomic
 warnings_lock = threading.Lock()
 
-def check_message(account: Account, message: dict, warnings: dict, group_chat: GroupChat, model: Detoxify, threshold: float = 0.6, warning_limit: int = 3):
+def check_message(account: Account, message: models.Message, warnings: dict, group_chat: GroupChat, model: Detoxify, threshold: float = 0.6, warning_limit: int = 3):
     """
     Score a single message and warn (or remove) its author.
     """
-    public_key = message["from"]
+    public_key = message.from_public_key
     if public_key == account.info["public_key"]:
         return
 
-    label, score = max(model.predict(message["text"]).items(), key=lambda item: item[1])
-    account.logger.info(f"Message: '{message['text']}'\t\t{label} - {(score * 100):.2f}%")
+    label, score = max(model.predict(message.content).items(), key=lambda item: item[1])
+    account.logger.info(f"Message: '{message.content}'\t\t{label} - {(score * 100):.2f}%")
 
     if score < threshold:
         return
@@ -26,7 +26,7 @@ def check_message(account: Account, message: dict, warnings: dict, group_chat: G
         count = warnings[public_key]
 
     if count < warning_limit:
-        group_chat.send_message(f"Warning {count} /{warning_limit} - @{public_key} please keep it civil.", message["id"])
+        group_chat.send_message(f"Warning {count} /{warning_limit} - @{public_key} please keep it civil.", message.id)
         account.logger.info(f"Sent warning to {public_key}")
     elif count >= warning_limit:
         group_chat.send_message(f"Removing @{public_key} member after {warning_limit} warnings.")
@@ -50,15 +50,13 @@ def main():
     model = Detoxify("original", device=device)
     account.logger.info(f"Listening Group Chat {group_chat.name}")
     for message in account.listen_messages():
-        for chat in message["event"]["chats"]:
-            if chat["id"] != group_chat.id:
-                continue
-
-            threading.Thread(
-                target=check_message,
-                args=(account, chat["lastMessage"], warnings, group_chat, model),
-                daemon=True
-            ).start()
+        if message.chat_id != group_chat.id:
+            continue
+        threading.Thread(
+            target=check_message,
+            args=(account, message, warnings, group_chat, model),
+            daemon=True
+        ).start()
 
 if __name__ == "__main__":
     main()

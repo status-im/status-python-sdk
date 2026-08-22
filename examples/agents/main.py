@@ -91,39 +91,26 @@ if __name__ == "__main__":
     )
 
     for message in status_toolkit.account.listen_messages():
-        content = None
-        for chat in message["event"]["chats"]:
 
-            latest_message: dict = chat.get("lastMessage", {})
-            if not latest_message:
-                continue
-
-            from_public_key = latest_message.get("from")
-            if from_public_key != PUBLIC_KEY:
-                continue
-
-            content = chat["lastMessage"]["text"]
-            payment_requests: list[dict] = latest_message.get("paymentRequests", [])
-            if payment_requests:
-                payment_request = payment_requests[0]
-                amount = status_toolkit.normalize_amount(payment_request["amount"], payment_request["tokenKey"])
-                chain_id, token_address = payment_request["tokenKey"].split("-")
-                payment_content = {
-                    "Receiver Wallet": payment_request['receiver'],
-                    "Token Symbol": payment_request['symbol'],
-                    "Token Address": token_address,
-                    "Amount": amount,
-                    "Chain ID": chain_id
-                }
-                content += f"\n---\n# Payment request\n" + "\n".join([
-                    f"{name}: {value}"
-                    for name, value in payment_content.items()
-                ])
-
-            break
-
-        if not content:
+        if message.from_public_key != PUBLIC_KEY:
             continue
+
+        content = message.content
+        payment_requests = message.payment_requests
+        if payment_requests:
+            payment_request = payment_requests[0]
+            amount = status_toolkit.normalize_amount(payment_request.amount, f"{payment_request.chain_id}-{payment_request.token_address}")
+            payment_content = {
+                "Receiver Wallet": payment_request.to_address,
+                "Token Symbol": payment_request.token_symbol,
+                "Token Address": payment_request.token_address,
+                "Amount": amount,
+                "Chain ID": payment_request.chain_id
+            }
+            content += f"\n---\n# Payment request\n" + "\n".join([
+                f"{name}: {value}"
+                for name, value in payment_content.items()
+            ])
 
         result = agent.invoke({
             "messages": [

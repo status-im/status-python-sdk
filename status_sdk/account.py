@@ -8,7 +8,7 @@ from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from . import constants
+from . import constants, models
 from .signal import Signal
 from .logger import Logger
 
@@ -529,6 +529,7 @@ class Account:
         contacts = [
             {"type": "contact", "id": contact["chat_id"], "name": contact["display_name"]}
             for contact in self.contacts.values()
+            if contact["mutual"]
         ]
 
         # Group chats in RPC endpoint are chat type 3
@@ -827,7 +828,7 @@ class Account:
 
         return not any(errors) if errors else False
 
-    def listen_contact_requests(self) -> Generator:
+    def listen_contact_requests(self) -> Generator[models.ContactRequest, None, None]:
         """
         Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
         """
@@ -838,14 +839,17 @@ class Account:
             if message["type"] == "local-notifications":
                 category = event.get("category")
                 if category == "contactRequest":
-                    message["request_type"] = "incoming"
-                    yield message
+                    yield models.ContactRequest(message["event"]["body"]["message"]["from"], incoming=True)
 
             if message["type"] == "messages.new" and accepted_contact_request.search(str(message)):
-                message["request_type"] = "accepted"
-                yield message
+                for public_key in set(accepted_contact_request.findall(str(message))):
 
-    def listen_message_mentions(self) -> Generator:
+                    if self.info["public_key"] == public_key:
+                        continue
+
+                    yield models.ContactRequest(public_key, accepted=True)
+
+    def listen_message_mentions(self) -> Generator[models.Message, None, None]:
         """
         Listen for `@0xpublic-key` mentions. Can be used for real time processing.
         """
@@ -860,16 +864,17 @@ class Account:
 
             current_text: str = event["body"]["message"]["text"]
             if mention_everyone in current_text or account_mention in current_text:
-                yield message
+                yield models.Message.from_raw(event["body"]["message"])
 
-    def listen_messages(self) -> Generator:
+    def listen_messages(self) -> Generator[models.Message, None, None]:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
         """
         for message in self.signal.listen("messages.new"):
             event: dict = message.get("event", {})
             if "chats" in event or "messages" in event:
-                yield message
+                for raw in event["messages"]:
+                    yield models.Message.from_raw(raw)
 
     def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """

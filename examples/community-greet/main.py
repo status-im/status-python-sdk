@@ -111,17 +111,17 @@ def main(channel_name: str, approve: bool):
     account.logger.info(f"Listening for incoming {community.name} [{community.id}] requests")
     pending_requests = []
     for request in community.listen_requests():
-        member_public_key: str = request["public_key"]
-        request_id: str = request["request_id"]
-        if request["state"] == "pending" and member_public_key not in pending_requests:
+        member_public_key: str = request.public_key
+
+        if request.state == "pending" and member_public_key not in pending_requests:
             pending_requests.append(member_public_key)
 
-        if approve and request["state"] == "pending":
-            community.accept(request_id)
+        if approve and request.state == "pending":
+            community.accept(request.id)
             account.logger.info(f"Accepted {member_public_key}")
             continue
 
-        if request["state"] != "accept" or member_public_key not in pending_requests:
+        if request.state != "accept" or member_public_key not in pending_requests:
             continue
 
         message = generate_message(member_public_key)
