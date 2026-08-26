@@ -204,17 +204,17 @@ class Account:
         if infura_token:
             params["infuraToken"] = infura_token
 
-        if alchemy_token and coingecko_api_key and infura_token:
-            self.__is_wallet_set = True
-
+        is_wallet_set = bool(alchemy_token and coingecko_api_key and infura_token)
         if url_key == "login":
             self.__info = self.__get_account_details(password, key_uid, mnemonic)
 
             if self.__info:
+                self.__is_wallet_set = is_wallet_set
                 self.logger.info("Account already logged in!")
                 return self
 
         self.logout()
+        self.__is_wallet_set = is_wallet_set
 
         url = self.__urls["http"][url_key]
         params.update({
