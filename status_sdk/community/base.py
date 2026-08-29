@@ -455,11 +455,16 @@ class Community:
         High level information for all community channels
         """
         result = self.__get_community_info()
+        category_mapping = {
+            category_id: info["name"]
+            for category_id, info in result.get("categories", {}).items()
+        }
         available_chats = [
             {
                 "id": current["id"],
                 "name": current["name"],
-                "category": current["categoryID"] if len(current["categoryID"]) > 0 else None
+                "category_id": current["categoryID"] if len(current["categoryID"]) > 0 else None,
+                "category_name": category_mapping.get(current["categoryID"])
             }
             for current in result["chats"].values()
         ]

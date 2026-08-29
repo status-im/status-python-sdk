@@ -946,7 +946,8 @@ Returns `list[dict]`, one entry per channel.
 |----|----|-------------|
 | `id` | `str` | The channel id (within the community). |
 | `name` | `str` | The channel name. Use this with [subscript access](./community.md#fetching-a-channel) and [`delete_channel`](./community.md#delete_channelchannel_name). |
-| `category` | `str`<br>`None` | The id of the category the channel belongs to, or `None` if uncategorised. |
+| `category_id` | `str`<br>`None` | The id of the category the channel belongs to, or `None` if uncategorised. |
+| `category_name` | `str`<br>`None` | The name of the category the channel belongs to, or `None` if uncategorised. |
 
 ```python
 from status_sdk import Account, Community
@@ -1497,6 +1498,62 @@ print(channel.emoji)
 ```
 
 ![Community Edit Emoji](./images/community/edit-channel-emoji.png)
+
+### `category`
+
+Get the channel's category, or move the channel to another one. It can also be set by a **category name**, as described in [`categories`](./community.md#categories), and the channel is placed at the bottom of that category. Unknown category names are ignored and the channel is moved out of its current category, next to the other uncategorised channels.
+
+Returns `str` when reading, or `None` if the channel is not in a category.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+# Read
+print(channel.category)
+
+# Update
+channel.category = "Development"
+```
+
+### `position`
+
+Get or update the channel's position inside its own [`category`](./community.md#category). Positions start at `0` at the top of the category, so assigning `0` moves the channel to the very top. Out of range values are clamped - anything below `0` becomes `0`, and anything past the last channel moves it to the bottom of the category.
+
+Returns `int` when reading.
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+# Read
+print(channel.position)
+
+# Update - move the channel to the top of its category
+channel.position = 0
+```
 
 ### Permissions
 

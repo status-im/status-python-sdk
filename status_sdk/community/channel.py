@@ -136,6 +136,65 @@ class Channel:
         return self.__get_channel_info()["canPost"]
 
     @property
+    def category(self) -> Optional[str]:
+        """
+        The category's name
+        """
+        return self.__get_channel_info()["categoryName"]
+
+    @category.setter
+    def category(self, value: str):
+        community_info = self.__get_community_info()
+        category_mapping = {
+            info["name"]: category_id
+            for category_id, info in community_info.get("categories", {}).items()
+        }
+
+        new_category = category_mapping.get(value)
+
+        position_mapping = self.__get_category_positions()
+        params = [{
+            "communityId": self.__community_id,
+            "categoryId": '' if not new_category else new_category,
+            "chatId": self.id,
+            "position": position_mapping.get(new_category, 0) + 1
+        }]
+        self.__account._call_rpc("messaging", "reorderCommunityChat", params)
+
+    @property
+    def position(self) -> Optional[str]:
+        """
+        The position of the chat in the current `category`
+        """
+        return self.__get_channel_info()["position"]
+
+    @position.setter
+    def position(self, value: int):
+        if not isinstance(value, int):
+            raise exceptions.InvalidCommunityChannelPositionError("Community channel position must be an integer.")
+
+        category_id = self.__get_channel_info()["categoryID"]
+        if len(category_id) == 0:
+            category_id = None
+
+        position_mapping = self.__get_category_positions()
+        largest_position = position_mapping[category_id]
+        new_largest_position = largest_position + 1
+        if value < 0:
+            value = 0
+
+        if value > new_largest_position:
+            value = new_largest_position
+
+        params = [{
+            "communityId": self.__community_id,
+            "categoryId": '' if not category_id else category_id,
+            "chatId": self.id,
+            "position": value
+        }]
+        self.__account._call_rpc("messaging", "reorderCommunityChat", params)
+
+    @property
     def description(self) -> str:
         """
         The Community Chat's description
@@ -261,6 +320,7 @@ class Channel:
         left out of `chat_setup` is cleared. That is why every current value is filled
         in first, and only the provided arguments override it.
         """
+        info = self.__get_channel_info()
         channel_setup = {
             "identity": {
                 "display_name": self.name,
@@ -268,8 +328,8 @@ class Channel:
                 "color": self.colour,
                 "description": self.description
             },
-            "category_id": self.__get_channel_info()["categoryID"],
-            "position": self.__get_channel_info()["position"]
+            "category_id": info["categoryID"],
+            "position": info["position"]
         }
 
         if name:
@@ -287,9 +347,31 @@ class Channel:
         params = [self.__community_id, self.id, channel_setup]
         self.__account._call_rpc("messaging", "editCommunityChat", params)
 
-    def __get_channel_info(self) -> dict:
+    def __get_category_positions(self) -> dict:
         """
-        Get information for the current channel.
+        Get the largest position for each category
+        """
+        largest = {}
+        for chat in (self.__get_community_info().get("chats") or {}).values():
+            category_id: str = chat["categoryID"]
+            current_position = chat["position"]
+            if len(category_id) == 0:
+                category_id = None
+
+            if category_id not in largest:
+                largest[category_id] = current_position
+
+            if current_position > largest[category_id]:
+                largest[category_id] = current_position
+
+        return largest
+
+    def __get_community_info(self) -> dict:
+        """
+        Get up to date information for the community
+
+        Output:
+            - up to date community data
         """
         params = {
             "communityKey": self.__community_id,
@@ -301,14 +383,24 @@ class Channel:
         if error:
             raise exceptions.InvalidCommunityKeyError(error["message"])
 
-        chats: dict[str, dict] = response["result"]["chats"]
+        if not response["result"]:
+            raise exceptions.CommunityNotFoundError(f"Community '{self.id}' was not found...")
+
+        return response["result"]
+
+    def __get_channel_info(self) -> dict:
+        """
+        Get information for the current channel.
+        """
+        response = self.__get_community_info()
+        chats: dict[str, dict] = response["chats"]
         selected_chat: dict = chats.get(self.id.replace(self.__community_id, ""), {})
         if not selected_chat:
             raise exceptions.CommunityChannelNotFoundError()
 
         category_mapping = {
             category_id: info["name"]
-            for category_id, info in response["result"].get("categories", {}).items()
+            for category_id, info in response.get("categories", {}).items()
         }
         selected_chat["categoryName"] = category_mapping.get(selected_chat["categoryID"])
         return selected_chat
