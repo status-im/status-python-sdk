@@ -796,7 +796,11 @@ class Account:
         if error:
             raise exceptions.SendContentError(error.get("message"))
 
-        return response["result"]["messages"][0]["id"]
+        messages = response["result"]["messages"]
+        if reply_to_message_id and len(messages) > 1:
+            messages = [m for m in messages if m["id"] != reply_to_message_id] or messages
+
+        return max(messages, key=lambda m: m.get("clock", 0))["id"]
 
     def delete_message(self, id: str) -> bool:
         """
