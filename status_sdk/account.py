@@ -13,7 +13,6 @@ from .signal import Signal
 from .logger import Logger
 
 class Account:
-
     # Enum mappings from original wakuext.py
     __mappings = {
         "contact_request": {
@@ -595,6 +594,10 @@ class Account:
         return balance.copy()
 
     @property
+    def message_length(self) -> int:
+        return 2_000
+
+    @property
     def status(self) -> str:
         """
         Get the current active status of the account
@@ -738,7 +741,7 @@ class Account:
         if not message:
             message = ""
 
-        if len(message) > 2_000:
+        if len(message) > self.message_length:
             raise exceptions.MessageTooLongError(f"Message cannot be longer than 2000 characters (got {len(message)})...")
 
         msg_params = {

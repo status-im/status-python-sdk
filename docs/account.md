@@ -1908,6 +1908,33 @@ for chat in account.chats:
     print(f"{chat['type']}\t{chat['name']}\t{chat['id']}")
 ```
 
+#### `message_length`
+
+The maximum number of characters a single message may contain, as enforced by Status App.
+
+Returns `int`.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+print(account.message_length)
+
+# This is under the assumption you already have a contact / joined a community
+chat = account.chats[0]
+report = "A very long report..."
+
+# Split a long text into messages the app accepts
+for index in range(0, len(report), account.message_length):
+    account.send_message(chat["id"], report[index:index + account.message_length])
+```
+
 ### Wallet
 
 #### `chains`
