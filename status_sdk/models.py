@@ -41,7 +41,9 @@ class Message:
     from_public_key: str
     timestamp: datetime.datetime
     chat_type: str
+    source: str
     reply_id: Optional[str] = None
+    bridge_id: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
 
     @classmethod
@@ -52,7 +54,8 @@ class Message:
             "id": raw["id"],
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
-            "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000)
+            "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
+            "source": raw.get("bridgeMessage", {}).get("bridgeName", "status")
         }
 
         if len(raw["responseTo"]) > 0:
@@ -82,6 +85,11 @@ class Message:
             caption = f"{text}\n\n" if len(text) > 0 else ""
             params["content"] = f"{caption}{img_path}"
             params["content_type"] = "image"
+        # Bridged Message
+        elif content_type == 18:
+            params["content"] = raw["bridgeMessage"]["bridgeName"]
+            params["content_type"] = "text"
+            params["bridge_id"] = raw["bridgeMessage"]["messageID"]
 
         payments = raw.get("paymentRequests", [])
         if payments:
