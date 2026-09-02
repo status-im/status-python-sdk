@@ -1179,6 +1179,42 @@ A valid channel emoji must satisfy all of the following:
 | `🇬🇧` | Flag (multi-codepoint) |
 | `👨‍👩‍👧` | ZWJ sequence |
 
+## Channel permissions
+
+A **permission** is a rule that decides who may do something in the community. Every permission has a **scope** - what it grants - and optional **token criteria** - what a member must hold to be granted it. A permission with no token criteria applies to everyone; a permission with token criteria is what makes a channel [token gated](./community.md#is_token_gated).
+
+Permissions are [added](./community.md#add_permissionpermission-tokensnone), [listed](./community.md#permissions-1) and [deleted](./community.md#delete_permissionid) through the channel.
+
+### Permission scopes
+
+The `permission` argument is a **case-insensitive** string. Any other value raises a custom exception listing the valid ones.
+
+| Scope | Description |
+|-----|-----|-------------|
+| `view` | Members who meet the criteria can **read** the channel. |
+| `view_post` | Members who meet the criteria can **read and post** in the channel. |
+| `admin` | Members who meet the criteria become **administrators**. |
+| `member` | Members who meet the criteria can **join** the community. |
+| `token_master` | Members who meet the criteria become **token masters**. |
+| `token_owner` | Members who meet the criteria become **token owners**. |
+
+`view` and `view_post` are the channel-level scopes and are the ones you normally want here. The remaining four are **community-wide** roles - they are accepted by the SDK, but the backend decides whether it will attach them to a single channel, and a rejection is raised as a custom exception.
+
+### Token criteria
+
+Token criteria are described with the `models.TokenPermission` **dataclass**:
+
+| Attribute | Type | Required | Description |
+|----|----|----|-------------|
+| `symbol` | `str` | Yes | The token symbol, as it appears in [`get_tokens`](./account.md#get_tokens) on `Account`. |
+| `amount` | `float` | Yes | The minimum amount a member must hold. Converted to wei using the token's own `decimals`, so it is written in human units - `10` means 10 tokens, not 10 wei. |
+| `chain_id` | `int` | No | The chain the token lives on. Defaults to `1` (Ethereum mainnet). |
+| `address` | `str` | No | The token's contract address. Needed only when the same `symbol` exists more than once on `chain_id`. |
+
+Passing several `TokenPermission` objects requires a member to satisfy **all** of them.
+
+**Note**: Currently only **ERC-20** tokens are supported. Collectibles (ERC-721) and ENS criteria are configured in Status App.
+
 ## Methods
 
 ### `send_message(message, reply_to_message_id=None)`
@@ -1338,6 +1374,66 @@ channel = community["general"]
 messages = channel.get_messages()
 deleted = channel.delete_message(messages[0]["id"])
 print(f"Deleted: {deleted}")
+```
+
+### `add_permission(permission, tokens=None)`
+
+Add a permission to the channel. See [Channel permissions](./community.md#channel-permissions) for what the scopes mean and how token criteria are described.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `permission` | `str` | Yes | The [scope](./community.md#permission-scopes) to grant - `view`, `view_post`, `admin`, `member`, `token_master` or `token_owner`. Case-insensitive. |
+| `tokens` | `models.TokenPermission`<br>`list[models.TokenPermission]` | No | The [token criteria](./community.md#token-criteria) a member must meet. A single object or a list of them. When omitted, the permission applies to **every** member. |
+
+```python
+from status_sdk import Account, Community, models
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+# Open to every member - anyone can read and post
+channel.add_permission("view")
+
+# Token gated - only members holding at least 10 SNT on mainnet can read
+channel.add_permission("view", models.TokenPermission(symbol="SNT", amount=10))
+```
+
+### `delete_permission(id)`
+
+Delete a permission from the channel by its id. Current permissions and their ids come from the [`permissions` property](./community.md#permissions-1).
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `id` | `str` | Yes | The permission's `id`, from the [`permissions` property](./community.md#permissions-1). |
+
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+# Remove every token gate on the channel, leaving it open to all members
+for permission_id in channel.permissions["id"].unique():
+    channel.delete_permission(permission_id)
 ```
 
 ## Properties
@@ -1566,6 +1662,8 @@ Four properties describe what the logged-in account may do in the channel - [`ca
 | [`can_react`](./community.md#can_react) | `reactions` | The account can post emoji reactions. |
 | [`is_token_gated`](./community.md#is_token_gated) | `token_gated` | Access to the channel is gated behind a token. |
 
+A fifth property, [`permissions`](./community.md#permissions-1), works the other way round - instead of what **this account** may do, it lists the [permission rules](./community.md#channel-permissions) configured on the channel.
+
 #### `can_post`
 
 Whether the logged-in account is allowed to post in the channel.
@@ -1667,4 +1765,43 @@ if channel.is_token_gated and not channel.can_post:
     print("The account does not hold the token this channel requires")
 ```
 
-**Note**: token gating is configured in Status App. The SDK reports it, and always [creates channels](./community.md#create_channelname-description-emojinone-colournone-category_namenone) that are open to every member.
+Channels are always [created](./community.md#create_channelname-description-emojinone-colournone-category_namenone) open to every member. A channel becomes token gated once a permission carrying [token criteria](./community.md#token-criteria) is [added](./community.md#add_permissionpermission-tokensnone) to it, and stops being gated when that permission is [deleted](./community.md#delete_permissionid).
+
+#### `permissions`
+
+The permissions currently configured **on this channel**. Unlike the four properties above, this does not describe what the logged-in account may do - it lists the rules themselves, and is where [`delete_permission`](./community.md#delete_permissionid) gets its ids.
+
+Returns a `pd.DataFrame` with one row per **chat id per token criterion**, so a permission covering several channels or requiring several tokens spans several rows. An **empty** `DataFrame` is returned when the community has no permissions at all.
+
+| Column | Type | Description |
+|-------|------|-------------|
+| `id` | `str` | The permission's id. Pass this to [`delete_permission`](./community.md#delete_permissionid). |
+| `type` | `str` | The [scope](./community.md#permission-scopes), mapped back to its name - `view`, `view_post`, `admin`, `member`, `token_master` or `token_owner`. |
+| `chat_id` | `str` | The channel the permission applies to. |
+| `is_private` | `bool` | Whether the permission is hidden from members who do not meet it. |
+| `symbol` | `str` | Symbol of the required token. |
+| `amount_in_wei` | `str` | The required amount, in **wei**. Divide by `10 ** decimals` for human units. |
+| `decimals` | `int` | The token's decimals. |
+| `chain_id` | `int` | The chain the required token lives on. |
+| `contract_address` | `str` | The required token's contract address. |
+| `token_type` | `int` | The criterion type - `1` for ERC-20. |
+
+```python
+from status_sdk import Account, Community
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
+community = Community(account, url=url)
+
+channel = community["general"]
+
+permissions = channel.permissions
+if len(permissions) > 0:
+    print(permissions[["id", "type", "symbol", "amount_in_wei", "chain_id"]])
+```

@@ -1,8 +1,11 @@
+"""
+Used outside of `status_sdk`
+"""
 import shutil, os, subprocess, sys, time, yaml
 from pathlib import Path
 from typing import Optional
-from .logger import Logger
-from . import exceptions
+from ..logger import Logger
+from .. import exceptions
 
 def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5, platform: str = "linux/amd64", data_folder: Optional[str] = None):
     """
@@ -29,7 +32,7 @@ def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5,
 
     logger.info(f"Running Docker on {system}")
     ref = commit if commit else "develop"
-    DOCKER_COMPOSE_PATH = os.path.join(os.path.dirname(__file__), "docker-compose.yaml")
+    DOCKER_COMPOSE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docker-compose.yaml")
     # Docker is reached through WSL on Windows, so local paths are passed as `/mnt/<drive>/...`
     to_docker_path = lambda path: f"/mnt/{Path(path).drive.rstrip(':').lower()}/" + "/".join(Path(path).parts[1:]) if is_windows else path
     docker_path = to_docker_path(DOCKER_COMPOSE_PATH)

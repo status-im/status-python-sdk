@@ -54,7 +54,7 @@ Issues = "https://github.com/status-im/status-python-sdk/issues"
 "Status Backend" = "https://github.com/status-im/status-go"
 
 [tool.setuptools]
-packages = ["status_sdk", "status_sdk.community"]
+packages = ["status_sdk", "status_sdk.community", "status_sdk.utils"]
 
 [tool.setuptools.package-data]
 status_sdk = ["docker-compose.yaml"]
