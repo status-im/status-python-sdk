@@ -2,6 +2,7 @@ from ..account import Account
 from .. import exceptions, models
 from .channel import Channel
 from typing import Union, Optional, Generator
+from ..utils import community as utils
 import pandas as pd
 import datetime, copy, os, shutil
 
@@ -48,7 +49,7 @@ class Community:
             raise exceptions.CommunityNotFoundError(error["message"])
 
         self.__id = response["result"]["community"]["communityId"]
-        result: dict = self.__get_community_info()
+        result: dict = utils.get_community_info(self.__account, self.id)
         # Account is a member -> actions can be used
         if result["joined"]:
             return
@@ -170,7 +171,7 @@ class Community:
         Output:
             - DataFrame - row per `owner` per contract.
         """
-        result: dict = self.__get_community_info()
+        result: dict = utils.get_community_info(self.__account, self.id)
         info = [
             {
                 "symbol": nft_info["symbol"],
@@ -313,7 +314,7 @@ class Community:
                 "id": community_id,
                 "position": info["position"]
             }
-            for community_id, info in self.__get_community_info().get("categories", {}).items()
+            for community_id, info in utils.get_community_info(self.__account, self.id).get("categories", {}).items()
         }
         return mapping
 
@@ -322,7 +323,7 @@ class Community:
         """
         The account's community role
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return self.__role_mapping[result["memberRole"]]
 
     @property
@@ -330,7 +331,7 @@ class Community:
         """
         The community's name
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["name"]
 
     @property
@@ -338,7 +339,7 @@ class Community:
         """
         The community's description
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["description"]
 
     @property
@@ -346,7 +347,7 @@ class Community:
         """
         If the account is a member of the community
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["isMember"]
 
     @property
@@ -354,7 +355,7 @@ class Community:
         """
         If the account is a member of the community
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["encrypted"]
 
     @property
@@ -362,7 +363,7 @@ class Community:
         """
         The community's tags
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["tags"]
 
     @property
@@ -370,7 +371,7 @@ class Community:
         """
         The community's tags
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["joined"]
 
     @property
@@ -392,7 +393,7 @@ class Community:
         """
         The community's introduction message when new users join
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["introMessage"]
 
     @property
@@ -400,7 +401,7 @@ class Community:
         """
         The community's leave message when a member leaves.
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return result["outroMessage"]
 
     def get_members(self, dataframe: bool = False) -> Union[dict[str, dict], pd.DataFrame]:
@@ -414,7 +415,7 @@ class Community:
         Output:
             - `dict` or `DataFrame` of the current community members
         """
-        raw_data: dict[str, dict] = self.__get_community_info().get("members", {})
+        raw_data: dict[str, dict] = utils.get_community_info(self.__account, self.id).get("members", {})
         if not dataframe:
             return raw_data
 
@@ -454,7 +455,7 @@ class Community:
         """
         High level information for all community channels
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         category_mapping = {
             category_id: info["name"]
             for category_id, info in result.get("categories", {}).items()
@@ -475,7 +476,7 @@ class Community:
         """
         Currently banned public keys
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         banned_states = [0, 4] # Banned, BanWithAllmessagesDeleted
         public_keys = [
             public_key
@@ -545,7 +546,7 @@ class Community:
         Fetch a community chat by its name using subscript access, e.g. `community[channel_name]`.
         Available chat names can be found in the `chats` property.
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         category_mapping = {
             category_id: info["name"]
             for category_id, info in result.get("categories", {}).items()
@@ -571,28 +572,6 @@ class Community:
         Get the total number of members in the community
         """
         return len(self.get_members())
-
-    def __get_community_info(self) -> dict:
-        """
-        Get up to date information for the community
-
-        Output:
-            - up to date community data
-        """
-        params = {
-            "communityKey": self.id,
-            "waitForResponse": True,
-            "tryDatabase": True
-        }
-        response = self.__account._call_rpc("messaging", "fetchCommunity", [params])
-        error: dict = response.get("error", {})
-        if error:
-            raise exceptions.InvalidCommunityKeyError(error["message"])
-
-        if not response["result"]:
-            raise exceptions.CommunityNotFoundError(f"Community '{self.id}' was not found...")
-
-        return response["result"]
 
     def __normalise_public_keys(self, public_keys: Union[str, list[str]]) -> list[str]:
         """
@@ -633,7 +612,7 @@ class Community:
         Output:
             - the `datetime.datetime` of the `key`
         """
-        result = self.__get_community_info()
+        result = utils.get_community_info(self.__account, self.id)
         return datetime.datetime.fromtimestamp(result[key]) if result[key] != 0 else None
 
     def __verify_admin(self):

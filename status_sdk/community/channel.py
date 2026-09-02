@@ -1,17 +1,20 @@
 from ..account import Account
-from .. import exceptions
+from .. import exceptions, models
+from ..utils import community as utils
 from typing import Union, Optional
 import pandas as pd
-import re, datetime, random, unicodedata
+import re, datetime, random
 
 class Channel:
 
-    __perimission_mapping = {
-        0: "unknown",
-        1: "auto_accept",
-        2: "manual_accept"
+    __permission_mapping = {
+        1: "admin",
+        2: "member",
+        3: "view",
+        4: "view_post",
+        5: "token_master",
+        6: "token_owner"
     }
-
     __STATUS_COLOURS = [
         "#FF7D46", # Orange
         "#F6B03C", # Yellow
@@ -100,6 +103,13 @@ class Channel:
         return self.__id
 
     @property
+    def permissions(self) -> pd.DataFrame:
+        data = utils.get_channel_permissions(self.__account, self.__community_id, self.id)
+        if len(data) > 0:
+            data["type"] = data["type"].map(self.__permission_mapping)
+        return data
+
+    @property
     def url(self) -> str:
         """
         The URL of the channel
@@ -144,7 +154,7 @@ class Channel:
 
     @category.setter
     def category(self, value: str):
-        community_info = self.__get_community_info()
+        community_info = utils.get_community_info(self.__account, self.__community_id)
         category_mapping = {
             info["name"]: category_id
             for category_id, info in community_info.get("categories", {}).items()
@@ -246,7 +256,7 @@ class Channel:
         self.__validate_emoji(value)
         self.__edit_channel(emoji=value)
 
-    def send_message(self, message: str, reply_to_message_id: Optional[str] = None):
+    def send_message(self, message: str, reply_to_message_id: Optional[str] = None) -> Optional[str]:
         """
         Send a message to the Community chat.
 
@@ -257,7 +267,7 @@ class Channel:
         Output:
             - The message ID
         """
-        return self.__account.send_message(self.id, message, reply_to_message_id)
+        return self.__account.send_message(self.id, message, reply_to_message_id) if self.can_post else None
 
     def send_image(self, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
         """
@@ -271,7 +281,7 @@ class Channel:
         Output:
             - The message ID
         """
-        return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
+        return self.__account.send_image(self.id, file_path, message, reply_to_message_id) if self.can_post else None
 
     def send_emoji_reaction(self, message_id: str, emoji_shortname: str):
         """
@@ -281,6 +291,8 @@ class Channel:
             - `message_id` - the `id` of the message, as it appears in `self.get_messages()`
             - `emoji_shortname` - the emoji shortname as in Status App, with or without the surrounding colons
         """
+        if not self.can_react:
+            return
         self.__account.send_emoji_reaction(message_id, emoji_shortname, self.id)
 
     def get_messages(self, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
@@ -296,7 +308,7 @@ class Channel:
         Output:
             - All messages within the given range
         """
-        return self.__account.get_messages(self.id, start_timestamp, end_timestamp)
+        return self.__account.get_messages(self.id, start_timestamp, end_timestamp) if self.can_view else []
 
     def delete_message(self, id: str) -> bool:
         """
@@ -311,6 +323,70 @@ class Channel:
         """
         self.name
         return self.__account.delete_message(id)
+
+    def add_permission(self, permission: str, tokens: Optional[Union[list[models.TokenPermission], models.TokenPermission]] = None):
+        """
+        Add a new permission for the channel
+
+        Parameters:
+            - `permission` - the scope of the permission
+
+        """
+        if not isinstance(permission, str):
+            raise exceptions.InvalidCommunityChannelPermissionError("Community channel permission must be a string.")
+
+        reversed_mapping = {name: number for number, name in self.__permission_mapping.items()}
+        permission = permission.lower()
+        if permission not in reversed_mapping:
+            raise exceptions.InvalidCommunityChannelPermissionError(f"'{permission}' is not a valid community channel permission. It must be one of: {', '.join(reversed_mapping)}.")
+
+        token_criteria = []
+        if tokens:
+            if isinstance(tokens, models.TokenPermission):
+                tokens = [tokens]
+
+            available_tokens = self.__account.get_tokens()
+            for token_permission in tokens:
+                query = (available_tokens["symbol"] == token_permission.symbol) & (available_tokens["chain_id"] == token_permission.chain_id)
+                selected_tokens = available_tokens.loc[query, ["address", "decimals"]].drop_duplicates().reset_index(drop=True).copy()
+                if len(selected_tokens) > 1 and not token_permission.address:
+                    continue
+
+                token_info = selected_tokens.to_dict("records")[0]
+                token_criteria.append({
+                    "type": 1, # ERC20
+                    "contract_addresses": {str(token_permission.chain_id): token_info["address"]},
+                    "symbol": token_permission.symbol,
+                    "name": token_permission.symbol,
+                    "amountInWei": str(token_permission.amount * (10 ** token_info["decimals"]))
+                })
+
+        params = {
+            "communityId": self.__community_id,
+            "type": reversed_mapping[permission],
+            "tokenCriteria": token_criteria,
+            "chat_ids": [self.id]
+        }
+        response = self.__account._call_rpc("messaging", "createCommunityTokenPermission", [params])
+        if response.get("error"):
+            raise exceptions.InvalidCommunityChannelPermissionError(response["error"]["message"])
+
+    def delete_permission(self, id: str):
+        """
+        Delete a permission. Channel permissions can be found property `permissions`.
+
+        Parameters:
+            - `id` - the permission's ID as it is in property `permissions`
+        """
+        params = [
+            {
+                "communityId": self.__community_id,
+                "permissionId": id,
+            }
+        ]
+        response = self.__account._call_rpc("messaging", "deleteCommunityTokenPermission", params)
+        if response.get("error"):
+            raise exceptions.InvalidCommunityChannelPermissionError(response["error"]["message"])
 
     def __edit_channel(self, name: Optional[str] = None, emoji: Optional[str] = None, colour: Optional[str] = None, description: Optional[str] = None):
         """
@@ -352,7 +428,7 @@ class Channel:
         Get the largest position for each category
         """
         largest = {}
-        for chat in (self.__get_community_info().get("chats") or {}).values():
+        for chat in (utils.get_community_info(self.__account, self.__community_id).get("chats") or {}).values():
             category_id: str = chat["categoryID"]
             current_position = chat["position"]
             if len(category_id) == 0:
@@ -366,33 +442,11 @@ class Channel:
 
         return largest
 
-    def __get_community_info(self) -> dict:
-        """
-        Get up to date information for the community
-
-        Output:
-            - up to date community data
-        """
-        params = {
-            "communityKey": self.__community_id,
-            "waitForResponse": True,
-            "tryDatabase": True
-        }
-        response = self.__account._call_rpc("messaging", "fetchCommunity", [params])
-        error: dict = response.get("error", {})
-        if error:
-            raise exceptions.InvalidCommunityKeyError(error["message"])
-
-        if not response["result"]:
-            raise exceptions.CommunityNotFoundError(f"Community '{self.id}' was not found...")
-
-        return response["result"]
-
     def __get_channel_info(self) -> dict:
         """
         Get information for the current channel.
         """
-        response = self.__get_community_info()
+        response = utils.get_community_info(self.__account, self.__community_id)
         chats: dict[str, dict] = response["chats"]
         selected_chat: dict = chats.get(self.id.replace(self.__community_id, ""), {})
         if not selected_chat:

@@ -77,6 +77,9 @@ class InvalidCommunityChannelEmojiError(ValueError):
 class InvalidCommunityChannelPositionError(ValueError):
     pass
 
+class InvalidCommunityChannelPermissionError(ValueError):
+    pass
+
 class ChatNotFoundError(Exception):
     pass
 

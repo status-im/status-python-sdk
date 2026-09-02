@@ -105,3 +105,10 @@ class CommunityRequest:
     id: str
     state: str
     public_key: str
+
+@dataclass
+class TokenPermission:
+    symbol: str
+    amount: float
+    chain_id: int = 1
+    address: Optional[str] = None

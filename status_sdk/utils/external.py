@@ -1,8 +1,11 @@
+"""
+Used outside of `status_sdk`
+"""
 import shutil, os, subprocess, sys, time, yaml
 from pathlib import Path
 from typing import Optional
-from .logger import Logger
-from . import exceptions
+from ..logger import Logger
+from .. import exceptions
 
 def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5, platform: str = "linux/amd64", data_folder: Optional[str] = None):
     """
