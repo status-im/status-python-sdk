@@ -877,10 +877,20 @@ class Account:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
         """
+        ALLOWED_CONTENT_TYPES = [
+            1,  # Text
+            2,  # Sticker
+            4,  # Emojis
+            7,  # Image
+            18, # Bridged Message
+        ]
+
         for message in self.signal.listen("messages.new"):
             event: dict = message.get("event", {})
             if "chats" in event or "messages" in event:
                 for raw in event["messages"]:
+                    if raw["contentType"] not in ALLOWED_CONTENT_TYPES:
+                        continue
                     yield models.Message.from_raw(raw)
 
     def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
