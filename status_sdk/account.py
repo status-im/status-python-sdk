@@ -958,6 +958,7 @@ class Account:
         return all_messages
 
     def add_contact(self, public_key: str, display_name: Optional[str] = None):
+    def add_contact(self, public_key: str, request_id: Optional[str] = None, display_name: Optional[str] = None):
         """
         Send a contact request / approve a contact.
 
@@ -968,6 +969,14 @@ class Account:
         public_key = self.get_public_key(public_key)
 
         if public_key == self.info["public_key"]:
+            return self
+
+        if request_id:
+            params = [{"id": request_id, "contactID": public_key}]
+            response = self._call_rpc("messaging", "acceptContactRequest", params)
+            if response.get("error"):
+                raise exceptions.InvalidContactError(response["error"]["message"])
+
             return self
 
         if display_name:

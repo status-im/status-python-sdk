@@ -719,20 +719,14 @@ for mention in account.listen_message_mentions():
     print(mention)
 ```
 
-#### `add_contact(public_key, display_name=None)`
+#### `add_contact(public_key, request_id=None, display_name=None)`
 
-Send a contact request or approve an existing contact request. The mode depends on how the contact shows up in [`contacts`](./account.md#contacts). Best practice would be to look at the the following [`contacts`](./account.md#contacts) keys:
-
-- `has_added_us` - `bool` value to check if the other user has added the account as a friend
-- `added` - `bool` value to check if the account has added the other user as a friend
-- `mutual` - `bool` value to check if the account and other user are in contacts
-- `contact_state` - `str` value to see the account's current state
-- `external_contact_state` - `str` value to see the other user's state as it is in your node
+Send a contact request or approve an existing contact request.
 
 Modes:
 
-- **Approve mode** - `has_added_us` is `True` and `added` is `False`
-- **Add mode** - `has_added_us` is `False`
+- **Approve mode** - use `public_key` and `request_id`
+- **Add mode** - `public_key` and `display_name`. Display name can be omitted if the account shows up in [`contacts`](./account.md#contacts)
 
 The contact can be identified in three different ways, so you can pass whichever value you have at hand - the public key, the chat key as shown in Status App, or the profile link a user shares with you:
 
@@ -747,6 +741,7 @@ When an account URL is passed, the public key is resolved from it automatically 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `public_key` | `str` | Yes | The contact's Status **public key** (`0x...`), **chat key** (`zQ...`) or **account URL** (`https://...`). |
+| `request_id` | `str` | No | The `id` of an incoming contact request, from the `ContactRequest` yielded by [`listen_contact_requests`](./account.md#listen_contact_requests). Passing it switches the method into **approve mode** - the pending request is accepted instead of a new one being sent, and `display_name` is not used at all. Omit it to send a **new** contact request. |
 | `display_name` | `str` | Yes / No | Display name for the contact. If the contact already exists in [`contacts`](./account.md#contacts), the `display_name` parameter is optional and the existing name will be reused. If the contact has **never interacted with the bot before**, `display_name` must be provided so the contact can be created locally. |
 
 Returns the current `Account` instance, allowing method chaining.
