@@ -1,8 +1,8 @@
 services:
     backend:
         build:
-            context: https://github.com/status-im/status-go.git#${STATUS_GO_REF:-develop}
-        platform: ${STATUS_GO_PLATFORM:-linux/amd64}
+            context: https://github.com/status-im/status-go.git#${STATUS_GO_COMMIT:-develop}
+        platform: ${PLATFORM:-linux/amd64}
         container_name: status-backend
         ports:
             - 8080:8080 # backend_port

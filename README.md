@@ -141,7 +141,7 @@ The compose file reads three variables from the environment. All of them have a 
 | Variable | Default | Description |
 |-----|-----|-------------|
 | `STATUS_GO_COMMIT` | `develop` | The [`status-im/status-go`](https://github.com/status-im/status-go/) git ref (commit SHA, branch or tag) to build from. |
-| `STATUS_GO_PLATFORM` | `linux/amd64` | The platform the image is built for. |
+| `PLATFORM` | `linux/amd64` | The platform the image is built for. |
 
 ```
 STATUS_GO_COMMIT=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 PLATFORM=linux/amd64 docker compose -f status_sdk/docker-compose.yaml up -d
