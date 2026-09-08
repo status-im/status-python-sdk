@@ -661,12 +661,13 @@ for msg in account.listen_messages():
 
 #### `listen_contact_requests()`
 
-Listen for contact requests **in real time**. Both **incoming** contact requests sent to the account and contact requests sent by the account that were **accepted** by the other user are yielded. Every yielded event carries a `request_type` key that tells the two apart:
+Listen for contact requests **in real time**. . Every yielded event carries a `request_type` key that tells them apart:
 
 | `request_type` | Meaning |
 |-----|-----|
-| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-display_namenone). |
+| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-display_namenone). Use `id` and `public_key` properties from `ContactRequest` |
 | `accepted` | Another user accepted a contact request that the account had sent. The contact is now mutual. |
+| `removed` | When a user has removed the account from their contacts. |
 
 ```python
 from status_sdk import Account
@@ -695,10 +696,12 @@ params = {
 account.login(**params)
 
 for request in account.listen_contact_requests():
-    if request["request_type"] == "incoming":
+    if request.incoming:
         print("New contact request received")
-    elif request["request_type"] == "accepted":
+    elif request.accepted:
         print("Contact request was accepted")
+    elif request.removed:
+        print(f"{request.public_key} has removed you")
 ```
 
 #### `listen_message_mentions()`

@@ -4,13 +4,15 @@ import datetime
 
 @dataclass
 class ContactRequest:
+    id: str
     public_key: str
     incoming: bool = False
     accepted: bool = False
+    removed: bool = False
 
     def __post_init__(self):
-        if not (self.incoming or self.accepted):
-            raise ValueError("A ContactRequest must be `incoming` or `accepted`")
+        if not (self.incoming or self.accepted or self.removed):
+            raise ValueError(f"A {self.__class__.__name__} must be `incoming`, `accepted` or `removed`")
 
 @dataclass
 class PaymentRequest:

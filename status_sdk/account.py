@@ -839,22 +839,36 @@ class Account:
         """
         Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
         """
-        accepted_contact_request = re.compile(r"@(0x04[0-9a-fA-F]{128}) accepted your contact request")
+        key_mapping = {
+            16: "accepted",
+            17: "removed"
+        }
         for message in self.signal.listen(["local-notifications", "messages.new"]):
             event: dict = message.get("event", {})
 
             if message["type"] == "local-notifications":
                 category = event.get("category")
                 if category == "contactRequest":
-                    yield models.ContactRequest(message["event"]["body"]["message"]["from"], incoming=True)
+                    yield models.ContactRequest(
+                        message["event"]["body"]["message"]["id"],
+                        message["event"]["body"]["message"]["from"],
+                        incoming=True
+                    )
 
-            if message["type"] == "messages.new" and accepted_contact_request.search(str(message)):
-                for public_key in set(accepted_contact_request.findall(str(message))):
+            if message["type"] == "messages.new" and "messages" in message["event"]:
+                messages: list[dict] = message["event"]["messages"]
+                for message in messages:
+                    public_key: str = message["from"]
 
-                    if self.info["public_key"] == public_key:
+                    if self.info["public_key"] == public_key or message["contentType"] not in key_mapping:
                         continue
 
-                    yield models.ContactRequest(public_key, accepted=True)
+                    params = {
+                        "id": message["id"],
+                        "public_key": public_key,
+                        key_mapping[message["contentType"]]: True
+                    }
+                    yield models.ContactRequest(**params)
 
     def listen_message_mentions(self) -> Generator[models.Message, None, None]:
         """
@@ -957,13 +971,13 @@ class Account:
 
         return all_messages
 
-    def add_contact(self, public_key: str, display_name: Optional[str] = None):
     def add_contact(self, public_key: str, request_id: Optional[str] = None, display_name: Optional[str] = None):
         """
         Send a contact request / approve a contact.
 
         Parameters:
             - `public_key` - the contact's public key / chat key / URL
+            - `request_id` - the `id` from `ContactRequest` when using `listen_contact_request`. If not provided the user will be sent a friend request. If provided the user's request will be accepted.
             - `display_name` - this field is required if the `public_key` does not appear in your contacts. This will set their display name (can be different from the one the other user has chosen)
         """
         public_key = self.get_public_key(public_key)
