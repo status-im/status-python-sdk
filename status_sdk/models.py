@@ -112,10 +112,13 @@ class Message:
             params["content_type"] = "sticker"
         # Image
         elif content_type == 7:
-            img_path = raw["image"]
+            if isinstance(raw["image"], str):
+                raw["image"] = [raw["image"]]
+
+            img_paths: list[str] = raw["image"]
             text = raw["text"]
             caption = f"{text}\n\n" if len(text) > 0 else ""
-            params["content"] = f"{caption}{img_path}"
+            params["content"] = caption + "\n".join(img_paths)
             params["content_type"] = "image"
         # Bridged Message
         elif content_type == 18:

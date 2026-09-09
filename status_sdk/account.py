@@ -928,14 +928,32 @@ class Account:
             7,  # Image
             18, # Bridged Message
         ]
-
+        albums: dict[str, list[dict]] = {}
         for message in self.signal.listen("messages.new"):
             event: dict = message.get("event", {})
             if "chats" in event or "messages" in event:
                 for raw in event["messages"]:
                     if raw["contentType"] not in ALLOWED_CONTENT_TYPES:
                         continue
+
+                    if not raw.get("albumId"):
+                        yield models.Message.from_raw(raw)
+                        continue
+
+                    album_id: str = raw["albumId"]
+                    if album_id not in albums:
+                        albums[album_id] = []
+
+                    albums[album_id].append(raw)
+                    if len(albums[album_id]) != raw["albumImagesCount"]:
+                        continue
+
+                    raw["image"] = [
+                        point["image"]
+                        for point in albums[album_id]
+                    ]
                     yield models.Message.from_raw(raw)
+                    albums.pop(album_id)
 
     def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """
