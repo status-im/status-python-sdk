@@ -269,7 +269,7 @@ class Channel:
         """
         return self.__account.send_message(self.id, message, reply_to_message_id) if self.can_post else None
 
-    def send_image(self, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    def send_image(self, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> Optional[str]:
         """
         Send a image to the group chat.
 
@@ -282,6 +282,24 @@ class Channel:
             - The message ID
         """
         return self.__account.send_image(self.id, file_path, message, reply_to_message_id) if self.can_post else None
+
+    def send_bridged_message(self, message: str, name: Optional[str] = None, username: Optional[str] = None, user_id: Optional[str] = None, message_id: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_url: Optional[str] = None) -> Optional[str]:
+        """
+        Forward a message from another messaging platform to the Community chat.
+
+        Parameters:
+            - `message` - the message that will be sent
+            - `name` - the name of the other platform
+            - `username` - the username as it is in the other platform
+            - `user_id` - the ID of the `username` as it is in the other platform
+            - `message_id` - the message ID as it is in the other platform
+            - `reply_to_message_id` - the ID of the message as it is in the other platform
+            - `image_url` - URL of the user's image
+
+        Output:
+            - The message ID in Status App
+        """
+        return self.__account.send_bridged_message(self.id, message, name, username, user_id, message_id, reply_to_message_id, image_url) if self.can_post else None
 
     def send_emoji_reaction(self, message_id: str, emoji_shortname: str):
         """

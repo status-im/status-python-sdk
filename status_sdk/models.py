@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Self, Optional
-import datetime
+from typing import Self, Optional, Union
+import datetime, uuid
 
 @dataclass
 class ContactRequest:
@@ -33,6 +33,36 @@ class PaymentRequest:
             "amount": raw["amount"]
         }
         return cls(**params)
+
+@dataclass
+class BridgedContent:
+    message: str
+    name: Optional[str] = None
+    username: Optional[str] = None
+    user_id: Optional[Union[str, int]] = None
+    reply_to_message_id: Optional[Union[str, int]] = None
+    message_id: Optional[Union[str, int]] = None
+    image_url: Optional[str] = None
+
+    def __post_init__(self):
+        to_string = lambda value: str(value) if isinstance(value, int) else value
+
+        self.user_id = to_string(self.user_id)
+        self.reply_to_message_id = to_string(self.reply_to_message_id)
+        self.message_id = to_string(self.message_id)
+
+    @property
+    def status_go_params(self) -> dict:
+        content = {
+            "bridgeName": self.name or "Unknown",
+            "userName": self.username or "Anon",
+            "userAvatar": self.image_url or "",
+            "userID": self.user_id or str(uuid.uuid4()),
+            "content": self.message,
+            "messageID": self.message_id or str(uuid.uuid4()),
+            "parentMessageID": self.reply_to_message_id or "",
+        }
+        return content
 
 @dataclass
 class Message:

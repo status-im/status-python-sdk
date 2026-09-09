@@ -515,6 +515,69 @@ account.send_image(
 )
 ```
 
+#### `send_bridged_message(chat_id, message, name=None, username=None, user_id=None, message_id=None, reply_to_message_id=None, image_url=None)`
+
+Relay a message that came from **another messaging platform** - Discord, Telegram, Slack, IRC - into a Status chat. Status App renders it as a **bridged message** - the original author's name and avatar are shown, with the platform it came from, rather than the message appearing to come from the bot account itself.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `chat_id` | `str` | Yes | Identifier of the chat where the message will be sent. All available chat IDs come from the [`chats`](./account.md#chats) property. |
+| `message` | `str` | Yes | The text of the original message. |
+| `name` | `str` | No | The platform the message came from, shown as the bridge label in Status App - for example `Discord`. Defaults to `Unknown`. |
+| `username` | `str` | No | The author's username **on the other platform**, shown as the sender. Defaults to `Anon`. |
+| `user_id` | `str` | No | The author's id on the other platform. Status uses it to tell one bridged author from another, so **pass the real id** - see the note below. |
+| `message_id` | `str` | No | The original message's id on the other platform. Pass it if you want later messages to be able to reply to this one. |
+| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id. Unlike in [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. Passing a Status id will not thread. |
+| `image_url` | `str` | No | URL of the author's avatar on the other platform. Defaults to no avatar. |
+
+Returns `str` - the `id` of the message **in Status App**, which is a different value from the `message_id` you passed in. It can be used with [`delete_message`](./account.md#delete_messageid) like any other sent message.
+
+```python
+from status_sdk import Account
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = account.chats[0]
+
+status_id = account.send_bridged_message(
+    chat_id=chat["id"],
+    message="Has anyone tried the new build?",
+    name="Discord",
+    username="thedatabro",
+    user_id="356712449896382465",
+    message_id="1180937465829183498",
+    image_url="https://cdn.discordapp.com/avatars/356712449896382465/a1b2c3.png"
+)
+print(f"Relayed into Status as {status_id}")
+```
+
+Threading a reply that happened on the other platform:
+
+```python
+account.send_bridged_message(
+    chat_id=chat["id"],
+    message="Yes, works on my machine",
+    name="Discord",
+    username="alex",
+    user_id="481920374651829301",
+    message_id="1180937812345678901",
+    # The Discord id of the message being replied to, relayed earlier
+    reply_to_message_id="1180937465829183498"
+)
+```
+
+**Note**: `user_id` and `message_id` both fall back to a **freshly generated UUID** when omitted.
+
+1. Without `user_id`, every relayed message looks like it came from a different author even when the same person sent them all;
+2. without `message_id`, nothing can ever reply to that message, because the id it would need to reference is discarded. A real bridge should pass both.
+
+The same method is available on [`GroupChat`](./group-chat.md#send_bridged_messagemessage-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) and on a community [`Channel`](./community.md#send_bridged_messagemessage-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) without the `chat_id` argument, since those already know their own chat.
+
 #### `send_emoji_reaction(message_id, emoji_shortname, chat_id=None)`
 
 React to a message with an emoji, the same as reacting to a message in Status App. The reaction is a **toggle** - calling the method again with the same emoji on the same message removes it, so the same call both sets and unsets the reaction.

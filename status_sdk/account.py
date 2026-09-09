@@ -677,6 +677,33 @@ class Account:
         """
         return self.__send_content(chat_id, message, reply_to_message_id)
 
+    def send_bridged_message(self, chat_id: str, message: str, name: Optional[str] = None, username: Optional[str] = None, user_id: Optional[str] = None, message_id: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_url: Optional[str] = None) -> str:
+        """
+        Forward a message from another messaging platform to the given chat.
+
+        Parameters:
+            - `chat_id` - the chat ID can be found in `self.chats`
+            - `message` - the message that will be sent
+            - `name` - the name of the other platform
+            - `username` - the username as it is in the other platform
+            - `user_id` - the ID of the `username` as it is in the other platform
+            - `message_id` - the message ID as it is in the other platform
+            - `reply_to_message_id` - the ID of the message as it is in the other platform
+            - `image_url` - URL of the user's image
+
+        Output:
+            - The message ID in Status App
+        """
+        content = models.BridgedContent(
+            message=message,
+            name=name,
+            username=username,
+            user_id=user_id,
+            reply_to_message_id=reply_to_message_id,
+            message_id=message_id,
+            image_url=image_url
+        )
+        return self.__send_content(chat_id, bridged_content=content)
 
     def send_emoji_reaction(self, message_id: str, emoji_shortname: str, chat_id: Optional[str] = None):
         """
@@ -711,7 +738,7 @@ class Account:
         if error:
             raise exceptions.ChatNotFoundError(error.get("message"))
 
-    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None) -> str:
+    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None, bridged_content: Optional[models.BridgedContent] = None) -> str:
         """
         Send a message with optional media attached to the given chat.
 
@@ -765,6 +792,11 @@ class Account:
             msg_params["contentType"] = 7
             content_key = "imagePath"
             asset_subfolder = "images"
+
+        if bridged_content:
+            msg_params["text"] = ""
+            msg_params["contentType"] = 18
+            msg_params["bridgeMessage"] = bridged_content.status_go_params
 
         if asset_subfolder:
             docker_file_path.append(asset_subfolder)

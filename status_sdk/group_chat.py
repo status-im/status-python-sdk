@@ -84,6 +84,24 @@ class GroupChat:
         """
         return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
 
+    def send_bridged_message(self, message: str, name: Optional[str] = None, username: Optional[str] = None, user_id: Optional[str] = None, message_id: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_url: Optional[str] = None) -> str:
+        """
+        Forward a message from another messaging platform to the group chat.
+
+        Parameters:
+            - `message` - the message that will be sent
+            - `name` - the name of the other platform
+            - `username` - the username as it is in the other platform
+            - `user_id` - the ID of the `username` as it is in the other platform
+            - `message_id` - the message ID as it is in the other platform
+            - `reply_to_message_id` - the ID of the message as it is in the other platform
+            - `image_url` - URL of the user's image
+
+        Output:
+            - The message ID in Status App
+        """
+        return self.__account.send_bridged_message(self.id, message, name, username, user_id, message_id, reply_to_message_id, image_url)
+
     def send_emoji_reaction(self, message_id: str, emoji_shortname: str):
         """
         Set / unset emoji reaction for a message in the group chat.

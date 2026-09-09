@@ -252,6 +252,46 @@ message_id = group_chat.send_image("./meme-67.png", "Daily random meme")
 print(f"Sent image: {message_id}")
 ```
 
+### `send_bridged_message(message, name=None, username=None, user_id=None, message_id=None, reply_to_message_id=None, image_url=None)`
+
+Relay a message that came from **another messaging platform** - Discord, Telegram, Slack, IRC - into the group chat. Status App renders it as a **bridged message**: the original author's name and avatar are shown, along with the platform it came from, instead of the message appearing to come from the bot account. Use [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) when the bot is speaking as itself.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `message` | `str` | Yes | The text of the original message. |
+| `name` | `str` | No | The platform the message came from, shown as the bridge label in Status App - for example `Discord`. Defaults to `Unknown`. |
+| `username` | `str` | No | The author's username **on the other platform**, shown as the sender. Defaults to `Anon`. |
+| `user_id` | `str` | No | The author's id on the other platform. Status uses it to tell one bridged author from another, so **pass the real id** - see the note below. |
+| `message_id` | `str` | No | The original message's id on the other platform. Pass it if you want later messages to be able to reply to this one. |
+| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id, unlike in [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) and [`send_image`](./group-chat.md#send_imagefile_path-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. |
+| `image_url` | `str` | No | URL of the author's avatar on the other platform. Defaults to no avatar. |
+
+Returns `str` - the `id` of the message **in Status App**, delegated from [`send_bridged_message`](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) on `Account`. This is a different value from the `message_id` you passed in, and it can be used with [`delete_message`](./group-chat.md#delete_messageid) like any other sent message.
+
+```python
+from status_sdk import Account, GroupChat
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
+group_chat = GroupChat(account, chat["id"])
+
+status_id = group_chat.send_bridged_message(
+    message="Has anyone tried the new build?",
+    name="Discord",
+    username="thedatabro",
+    user_id="356712449896382465",
+    message_id="1180937465829183498",
+    image_url="https://cdn.discordapp.com/avatars/356712449896382465/a1b2c3.png"
+)
+print(f"Relayed into Status as {status_id}")
+```
+
 ### `send_emoji_reaction(message_id, emoji_shortname)`
 
 React to a message in the group chat with an emoji, the same as reacting to a message in Status App. The reaction is a **toggle** - calling the method again with the same emoji on the same message removes it, so the same call both sets and unsets the reaction.
