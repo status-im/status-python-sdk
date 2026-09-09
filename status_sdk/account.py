@@ -10,7 +10,6 @@ from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
 from . import constants, models
 from .signal import Signal
-from .logger import Logger
 
 class Account:
     # Enum mappings from original wakuext.py
@@ -75,8 +74,7 @@ class Account:
         # NOTE: This might change for initial release
         self.__assets_local_folder = os.path.join(sdk_folder, "assets")
         os.makedirs(self.__assets_local_folder, exist_ok=True)
-
-        self.__logger = Logger()
+        self.__logger = logging.getLogger(__name__)
         self.__timestamp_divisor = 1_000
         self.__kd_iterations = 256000
         self.__is_messenger_launched = False

@@ -1,10 +1,9 @@
 """
 Used outside of `status_sdk`
 """
-import shutil, os, subprocess, sys, time, yaml
+import shutil, os, subprocess, sys, time, yaml, logging
 from pathlib import Path
 from typing import Optional
-from ..logger import Logger
 from .. import exceptions
 
 def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5, platform: str = "linux/amd64", data_folder: Optional[str] = None):
@@ -21,7 +20,7 @@ def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5,
         - `platform` - the platform the image is built for. Defaults to `linux/amd64`. Run `docker buildx ls` to see the platforms your Docker installation supports.
         - `data_folder` - the local folder holding the accounts created in Status Backend. Necessary for Community nodes
     """
-    logger = Logger()
+    logger = logging.getLogger(__name__)
     system = sys.platform
     is_windows = system == "win32"
     if not shutil.which("docker"):
