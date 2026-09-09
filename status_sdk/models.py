@@ -119,9 +119,13 @@ class Message:
             params["content_type"] = "image"
         # Bridged Message
         elif content_type == 18:
-            params["content"] = raw["bridgeMessage"]["bridgeName"]
+            params["content"] = raw["bridgeMessage"]["content"]
             params["content_type"] = "text"
             params["bridge_id"] = raw["bridgeMessage"]["messageID"]
+            reply_id = raw["bridgeMessage"].get("parentMessageID")
+            if isinstance(reply_id, str) and len(reply_id) == 0:
+                reply_id = None
+            params["reply_id"] = reply_id
 
         payments = raw.get("paymentRequests", [])
         if payments:
