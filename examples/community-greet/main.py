@@ -113,15 +113,15 @@ def main(channel_name: str, approve: bool):
     for request in community.listen_requests():
         member_public_key: str = request.public_key
 
-        if request.state == "pending" and member_public_key not in pending_requests:
+        if request.pending and member_public_key not in pending_requests:
             pending_requests.append(member_public_key)
 
-        if approve and request.state == "pending":
+        if approve and request.pending:
             community.accept(request.id)
             account.logger.info(f"Accepted {member_public_key}")
             continue
 
-        if request.state != "accept" or member_public_key not in pending_requests:
+        if not request.accept or member_public_key not in pending_requests:
             continue
 
         message = generate_message(member_public_key)

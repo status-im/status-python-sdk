@@ -135,8 +135,11 @@ class Message:
 @dataclass
 class CommunityRequest:
     id: str
-    state: str
     public_key: str
+    pending: bool = False
+    reject: bool = False
+    accept: bool = False
+    cancel: bool = False
 
 @dataclass
 class TokenPermission:

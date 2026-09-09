@@ -301,7 +301,12 @@ class Community:
                 if not state:
                     continue
 
-                yield models.CommunityRequest(request["id"], state, request["publicKey"])
+                params = {
+                    "id": request["id"],
+                    "public_key": request["publicKey"],
+                    state: True
+                }
+                yield models.CommunityRequest(**params)
 
     @property
     def categories(self) -> dict[str, str]:
