@@ -933,31 +933,31 @@ class Account:
         SIZE = 100
         for message in self.signal.listen("messages.new"):
             event: dict = message.get("event", {})
-            if "chats" in event or "messages" in event:
-                for raw in event["messages"]:
-                    if raw["contentType"] not in ALLOWED_CONTENT_TYPES or raw["id"] in processed:
-                        continue
+            raw_messages: list[dict] = event.get("messages", [])
+            for raw in raw_messages:
+                if raw["contentType"] not in ALLOWED_CONTENT_TYPES or raw["id"] in processed:
+                    continue
 
-                    if not raw.get("albumId"):
-                        yield models.Message.from_raw(raw)
-                        processed.append(raw["id"])
-                        continue
-
-                    album_id: str = raw["albumId"]
-                    if album_id not in albums:
-                        albums[album_id] = []
-
-                    albums[album_id].append(raw)
-                    if len(albums[album_id]) != raw["albumImagesCount"]:
-                        continue
-
-                    raw["image"] = [
-                        point["image"]
-                        for point in albums[album_id]
-                    ]
+                if not raw.get("albumId"):
                     yield models.Message.from_raw(raw)
                     processed.append(raw["id"])
-                    albums.pop(album_id)
+                    continue
+
+                album_id: str = raw["albumId"]
+                if album_id not in albums:
+                    albums[album_id] = []
+
+                albums[album_id].append(raw)
+                if len(albums[album_id]) != raw["albumImagesCount"]:
+                    continue
+
+                raw["image"] = [
+                    point["image"]
+                    for point in albums[album_id]
+                ]
+                yield models.Message.from_raw(raw)
+                processed.append(raw["id"])
+                albums.pop(album_id)
 
             if len(processed) == SIZE:
                 processed = []
