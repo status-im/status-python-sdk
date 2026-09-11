@@ -109,15 +109,19 @@ class Signal:
         if isinstance(self.__signal_type, list) and signal["type"] not in self.__signal_type:
             return
 
-        event: Optional[dict] = signal.get("event", {}) or {}
-        data = {
-            "timestamp": datetime.datetime.fromtimestamp(signal["timestamp"]),
-            "is_error": not isinstance(event.get("error"), type(None)),
-            "type": signal["type"],
-            "error_message": event.get("error"),
-            "event": event
-        }
-        self.__queue.put(data)
+        event: Optional[Union[dict, list[dict]]] = signal.get("event", {}) or {}
+        if isinstance(event, dict):
+            event = [event]
+
+        for current in event:
+            data = {
+                "timestamp": datetime.datetime.fromtimestamp(signal["timestamp"]),
+                "is_error": not isinstance(current.get("error"), type(None)),
+                "type": signal["type"],
+                "error_message": current.get("error"),
+                "event": current
+            }
+            self.__queue.put(data)
 
     def __close_thread(self):
         """
