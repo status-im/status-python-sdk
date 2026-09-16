@@ -2,6 +2,9 @@ services:
     backend:
         build:
             context: https://github.com/status-im/status-go.git#${STATUS_GO_COMMIT:-develop}
+            args:
+                # The build context has no .git, so the embedded version is empty; link the ref being built in instead
+                build_flags: -ldflags=-X=github.com/status-im/status-go/pkg/version.version=${STATUS_GO_COMMIT:-develop}
         platform: ${PLATFORM:-linux/amd64}
         container_name: status-backend
         ports:
@@ -20,7 +23,7 @@ services:
         networks:
             - status-bridge
         healthcheck:
-            test: ["CMD", "curl http://0.0.0.0:8080/health"]
+            test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
 
 networks:
     status-bridge:
