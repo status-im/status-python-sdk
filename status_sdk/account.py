@@ -97,7 +97,13 @@ class Account:
                 "signals": f"{self.__ws_base_url}signals"
             }
         }
-        self.__is_docker = not bool(requests.get(self.__urls["http"]["health"]).json())
+
+        health_info: dict = requests.get(self.__urls["http"]["health"]).json()
+        version_regex = re.compile(
+            r'^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
+            r'(?:-(?P<commits>\d+)-g(?P<sha>[0-9a-f]{7,40}))?$'
+        )
+        self.__is_docker = not bool(version_regex.match(health_info.get("version", "")))
 
         base_folder = os.path.dirname(__file__)
         if not self.__is_docker:
