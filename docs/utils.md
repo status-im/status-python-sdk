@@ -96,6 +96,68 @@ sudo chown -R $USER:$USER /path/to/status_sdk
 sudo chmod -R a+rw /path/to/status_sdk
 ```
 
+### `build_and_launch(commit=None, repo_dir=None, address="localhost:8080", wait_seconds=30, install_deps=True)`
+
+Build `status-backend` **natively** from a local clone of [`status-im/status-go`](https://github.com/status-im/status-go), then run it as a normal process on your machine. This is the **alternative to [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone)** for setups without Docker. Everything else in the SDK works the same afterwards - [`Account`](./account.md) talks to the backend over HTTP either way.
+
+| | [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) | `build_and_launch` |
+|---|---|---|
+| Needs | Docker (and WSL on Windows) | Nix and `git` |
+| Windows | Supported | **Not supported** - use Docker, or run from inside WSL |
+| Backend runs as | A container | A process on your machine |
+| Stopping it | `docker compose down` | Terminate the returned process |
+
+The build runs inside the repository's **Nix dev shell**, so the Go toolchain and every build dependency come from Nix rather than your system - nothing has to be installed by hand beyond Nix itself.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `commit` | `str` | No | The `status-im/status-go` git commit SHA,. When omitted, the latest `develop` branch is built. |
+| `repo_dir` | `str` | No | Local folder to clone `status-go` into, and reuse on later calls. Defaults to a `status-go` folder next to this package's installation. When the folder does not already hold a clone, the repository is fetched from GitHub. |
+| `address` | `str` | No | The `host:port` to run `status-backend` on. Defaults to `localhost:8080`, which matches the defaults of [`Account`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone). If you change it, pass the matching `domain` and `backend_port` when creating the `Account`. |
+| `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **The build itself is not subject to this timeout** - only the startup that follows it. |
+| `install_deps` | `bool` | No | Whether to run `make status-go-deps` before building. This also runs `go clean -cache` and `go clean -modcache`, which throws away every cached Go build on your machine and makes the next build much slower. Only needed on a first build or after a Go toolchain upgrade. |
+
+Returns `subprocess.Popen` - the handle of the running `status-backend` process, so you can terminate it when you are done.
+
+```python
+from status_sdk import build_and_launch, Account
+
+# First run clones status-go and builds it - this takes a while
+process = build_and_launch()
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+print(account.info["public_key"])
+
+# Stop the backend when you are done
+process.terminate()
+```
+
+Build a specific ref into a folder of your choosing:
+
+```python
+from status_sdk import build_and_launch
+
+process = build_and_launch(
+    commit="2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149",
+    repo_dir="/home/thedatabro/src/status-go"
+)
+```
+
+Run on a different port, and point the `Account` at it:
+
+```python
+from status_sdk import build_and_launch, Account
+
+process = build_and_launch(address="localhost:9500", wait_seconds=60)
+account = Account(backend_port=9500)
+```
+
 ## Properties
 
 ### `__version__`

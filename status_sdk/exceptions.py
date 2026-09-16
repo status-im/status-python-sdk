@@ -133,6 +133,9 @@ class ProfilePictureError(Exception):
 class DockerError(Exception):
     pass
 
+class BuildError(Exception):
+    pass
+
 class SignalError(Exception):
     pass
 
