@@ -57,23 +57,7 @@ class Account:
         # Wallet transactions
         self.__alchemy_token = None
         self.__transactions: Optional[pd.DataFrame] = None
-        # Path of the account data in the Docker container for Status Backend
-        self.__docker_data_folder = "./data"
-        # Path of the backups in the Docker container for Status Backend
-        self.__docker_backup_folder = "./root/.config/Status/backups"
-        self.__backup_folder = backup_folder
-        # PyPI installation folder
-        sdk_folder = volume_folder if volume_folder else os.path.dirname(__file__)
-        # As the docker-compose.yaml folder is at the moment
-        self.__backup_sdk_folder = os.path.join(sdk_folder, "backups")
-        os.makedirs(self.__backup_sdk_folder, exist_ok=True)
 
-        # Path of where images will be uploaded to Status Backend
-        self.__docker_asset_folder = "./assets"
-        # As the docker-compose.yaml folder is at the moment
-        # NOTE: This might change for initial release
-        self.__assets_local_folder = os.path.join(sdk_folder, "assets")
-        os.makedirs(self.__assets_local_folder, exist_ok=True)
         self.__logger = logging.getLogger(__name__)
         self.__timestamp_divisor = 1_000
         self.__kd_iterations = 256000
@@ -95,6 +79,7 @@ class Account:
         self.__ws_base_url = f"ws://{domain}:{backend_port}/"
         self.__urls = {
             "http": {
+                "health": f"{self.__http_base_url.replace('statusgo/', '')}health",
                 "initialize": f"{self.__http_base_url}InitializeApplication",
                 "login": f"{self.__http_base_url}LoginAccount",
                 "create": f"{self.__http_base_url}CreateAccountAndLogin",
@@ -112,6 +97,34 @@ class Account:
                 "signals": f"{self.__ws_base_url}signals"
             }
         }
+        self.__is_docker = not bool(requests.get(self.__urls["http"]["health"]).json())
+
+        base_folder = os.path.dirname(__file__)
+        if not self.__is_docker:
+            os.makedirs(base_folder, exist_ok=True)
+
+        # Path of the account data in the Docker container / build for Status Backend
+        self.__docker_data_folder = "./data" if self.__is_docker else os.path.join(base_folder, "data")
+        if not self.__is_docker:
+            os.makedirs(self.__docker_data_folder, exist_ok=True)
+
+        # Path of the backups in the Docker container / build for Status Backend
+        self.__backup_folder = backup_folder
+        # PyPI installation folder
+        sdk_folder = volume_folder if volume_folder and self.__is_docker else base_folder
+        # As the docker-compose.yaml folder is at the moment
+        self.__backup_sdk_folder = os.path.join(sdk_folder, "backups")
+        os.makedirs(self.__backup_sdk_folder, exist_ok=True)
+
+        # Path of where images will be uploaded to Status Backend
+        self.__docker_asset_folder = "./assets" if self.__is_docker else os.path.join(base_folder, "assets")
+        if not self.__is_docker:
+            os.makedirs(self.__docker_asset_folder, exist_ok=True)
+        # As the docker-compose.yaml folder is at the moment
+        # NOTE: This might change for initial release
+        self.__assets_local_folder = os.path.join(sdk_folder, "assets")
+        os.makedirs(self.__assets_local_folder, exist_ok=True)
+
         self.__status = "on"
         self.__media_port = media_port
         self.__signal = Signal(self.__urls["socket"]["signals"])
@@ -385,7 +398,7 @@ class Account:
         extension = file_name.split(".")[-1]
         asset_file_name = f"profile.{extension}"
         asset_file_path = os.path.join(self.__assets_local_folder, asset_file_name)
-        docker_file_path = self.__docker_asset_folder + "/" + asset_file_name
+        docker_file_path = os.path.join(self.__docker_asset_folder, asset_file_name)
         for file_name in os.listdir(self.__assets_local_folder):
             current_file_path = os.path.join(self.__assets_local_folder, file_name)
             if not os.path.isfile(current_file_path) or current_file_path.lower() == file_path.lower():
@@ -1765,8 +1778,9 @@ class Account:
         if sdk_file_path != file_path:
             shutil.copy(file_path, sdk_file_path)
 
+        backup_folder = self._call_rpc("settings", "backupPath", []).get("result")
         params = {
-            "filePath": os.path.join(self.__docker_backup_folder, file_name).replace("\\", "/")
+            "filePath": f"{backup_folder}/{file_name}"  if self.__is_docker else os.path.join(backup_folder, file_name)
         }
         self.logger.info(f"Loading backup file: {file_path}")
         response = requests.post(self.__urls["http"]["load_backup"], json=params)
