@@ -372,7 +372,8 @@ class Account:
         Get current profile picture
         """
         identity_images = self._call_rpc("identity", "getIdentityImages", [self.info["key_uid"]])
-        latest = max(identity_images.get("result", []), key=lambda item: item["clock"], default=None)
+        result: list[dict] = identity_images.get("result", []) or []
+        latest = max(result, key=lambda item: item["clock"], default=None)
         if not latest:
             return None
         latest_url = latest["localUrl"]
