@@ -6,6 +6,7 @@ from pathlib import Path
 from platform import machine
 from typing import Optional
 from .. import exceptions
+from . import builds
 
 def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5, platform: str = "linux/amd64", data_folder: Optional[str] = None):
     """
@@ -103,6 +104,11 @@ def build_and_launch(commit: Optional[str] = None, repo_dir: Optional[str] = Non
     would like to use `status-im/status-go` outside of a Docker container. This will build a
     native clone of `status-im/status-go` inside its Nix dev shell and launch it.
 
+    If `status-backend` already exists at `repo_dir/build/bin/status-backend`, the build is
+    skipped entirely (including cloning/fetching `repo_dir` and installing Nix/git) and the
+    existing binary is launched directly. Remove the binary, or pass a different `repo_dir`, to
+    force a rebuild.
+
     NOTE: Requires the Nix package manager (https://nixos.org/download) and `git` to be installed.
 
     Parameters:
@@ -123,13 +129,22 @@ def build_and_launch(commit: Optional[str] = None, repo_dir: Optional[str] = Non
     if system == "win32":
         raise exceptions.BuildError("build_and_launch requires Nix and is not supported on Windows. Use launch_docker_container instead, or run this from within WSL.")
 
+    repo_dir = repo_dir or os.path.join(os.path.dirname(os.path.dirname(__file__)), "status-go")
+    binary_path = os.path.join(repo_dir, "build", "bin", "status-backend")
+
+    if os.path.isfile(binary_path):
+        logger.info(f"{binary_path} already exists. Skipping build.")
+        if system == "darwin":
+            builds.fix_nix_build_paths(binary_path)
+        builds.launch_build(binary_path, repo_dir, address, wait_seconds)
+        return
+
     if not shutil.which("nix"):
         raise exceptions.BuildError("Please install Nix - https://nixos.org/download.")
 
     if not shutil.which("git"):
         raise exceptions.BuildError("Please install git.")
 
-    repo_dir = repo_dir or os.path.join(os.path.dirname(os.path.dirname(__file__)), "status-go")
     ref = commit if commit else "develop"
 
     if not os.path.isdir(os.path.join(repo_dir, ".git")):
@@ -164,11 +179,13 @@ def build_and_launch(commit: Optional[str] = None, repo_dir: Optional[str] = Non
     if result.returncode != 0:
         raise exceptions.BuildError(result.stderr.strip())
 
-    binary_path = os.path.join(repo_dir, "build", "bin", "status-backend")
     if not os.path.isfile(binary_path):
         raise exceptions.BuildError(f"Build finished but {binary_path} was not found.")
 
-    __launch_build(binary_path, repo_dir, address, wait_seconds)
+    if system == "darwin":
+        builds.fix_nix_build_paths(binary_path)
+
+    builds.launch_build(binary_path, repo_dir, address, wait_seconds)
 
 def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = "status-im/status-go", tag: Optional[str] = None, token: Optional[str] = None, address: str = "localhost:8080", wait_seconds: int = 30):
     """
@@ -250,49 +267,5 @@ def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = 
         if result.returncode != 0 and "No such xattr" not in result.stderr:
             logger.warning(f"Failed to clear quarantine attribute on {bundle_dir}: {result.stderr.strip()}")
 
-    __launch_build(launcher, destination, address, wait_seconds)
+    builds.launch_build(launcher, destination, address, wait_seconds)
 
-def __launch_build(binary_path: str, working_dir: str, address: str = "localhost:8080", wait_seconds: int = 30):
-    """
-    Launch a `status-backend` binary and wait until it answers on its health endpoint.
-    Shared by `build_and_launch` and `download_build_and_launch`.
-
-    Parameters:
-        - `binary_path` - the `status-backend` binary to launch
-        - `working_dir` - the working directory of the process. The backend resolves its relative `assets` / `backups` folders against it
-        - `address` - the `host:port` to launch `status-backend` on. Defaults to `localhost:8080`.
-        - `wait_seconds` - number of seconds to wait, polling the health endpoint, before giving up on the backend starting
-    """
-    logger = logging.getLogger(__name__)
-    if not os.path.isfile(binary_path):
-        raise exceptions.BuildError(f"{binary_path} was not found.")
-
-    health_url = f"http://{address}/health"
-    try:
-        response = requests.get(health_url, timeout=1)
-        if response.ok:
-            logger.info(f"status-backend is already running on {address}. Skipping launch.")
-            return None
-    except requests.exceptions.RequestException:
-        pass
-
-    logger.info(f"Launching status-backend on {address}...")
-    # stdout / stderr are inherited, so the backend's logs are printed in the terminal
-    process = subprocess.Popen([binary_path, f"-address={address}"], cwd=working_dir)
-
-    deadline = time.time() + wait_seconds
-    last_error = None
-    while time.time() < deadline:
-        if process.poll() is not None:
-            raise exceptions.BuildError(f"status-backend exited early with code {process.returncode}. See the status-backend output above for details.")
-        try:
-            response = requests.get(health_url, timeout=1)
-            if response.ok:
-                logger.info("status-backend is up!")
-                return
-        except requests.exceptions.RequestException as error:
-            last_error = error
-        time.sleep(0.5)
-
-    process.terminate()
-    raise exceptions.BuildError(f"status-backend did not become reachable at {health_url} within {wait_seconds}s ({last_error}).")
