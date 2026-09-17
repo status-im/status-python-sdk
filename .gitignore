@@ -217,3 +217,5 @@ __marimo__/
 # Docker volumes for Status
 data/
 *.bkp
+# Status Backend builds
+status-backend-bundle/

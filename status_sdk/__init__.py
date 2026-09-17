@@ -3,7 +3,7 @@ from importlib.metadata import PackageNotFoundError, version as _version
 from .account import Account
 from .group_chat import GroupChat
 from .community.base import Community, Channel
-from .utils import launch_docker_container, build_and_launch
+from .utils import launch_docker_container, build_and_launch, download_build_and_launch
 from . import exceptions, models
 
 try:

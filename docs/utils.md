@@ -117,8 +117,6 @@ The build runs inside the repository's **Nix dev shell**, so the Go toolchain an
 | `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **The build itself is not subject to this timeout** - only the startup that follows it. |
 | `install_deps` | `bool` | No | Whether to run `make status-go-deps` before building. This also runs `go clean -cache` and `go clean -modcache`, which throws away every cached Go build on your machine and makes the next build much slower. Only needed on a first build or after a Go toolchain upgrade. |
 
-Returns `subprocess.Popen` - the handle of the running `status-backend` process, so you can terminate it when you are done.
-
 ```python
 from status_sdk import build_and_launch, Account
 
@@ -143,7 +141,7 @@ Build a specific ref into a folder of your choosing:
 ```python
 from status_sdk import build_and_launch
 
-process = build_and_launch(
+build_and_launch(
     commit="2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149",
     repo_dir="/home/thedatabro/src/status-go"
 )
@@ -154,8 +152,54 @@ Run on a different port, and point the `Account` at it:
 ```python
 from status_sdk import build_and_launch, Account
 
-process = build_and_launch(address="localhost:9500", wait_seconds=60)
+build_and_launch(address="localhost:9500", wait_seconds=60)
 account = Account(backend_port=9500)
+```
+
+### `download_build_and_launch(file_name=None, repo_name="status-im/status-go", tag=None, token=None, address="localhost:8080", wait_seconds=30)`
+
+Download a prebuilt `status-backend` bundle from a GitHub release and launch it. This is an **alternative to [`build_and_launch`](./utils.md#build_and_launchcommitnone-repo_dirnone-addresslocalhost8080-wait_seconds30-install_depstrue)** for setups that do not want to build [`status-im/status-go`](https://github.com/status-im/status-go) from source.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `file_name` | `str` | No | The release asset to download, exactly as it appears on the release page. When omitted, the asset matching this machine is picked using the pattern `status-backend_{platform}_{arch}_{version}`, e.g. `status-backend_linux_x86_64_2.34.0`. |
+| `repo_name` | `str` | No | The `owner/name` of the repository to pull the release from. Defaults to `status-im/status-go`. |
+| `tag` | `str` | No | A release tag. When omitted, the latest release is used. |
+| `token` | `str` | No | A GitHub token. Required for private repositories. |
+| `address` | `str` | No | The `host:port` to run `status-backend` on. Defaults to `localhost:8080`, which matches the defaults of [`Account`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone). If you change it, pass the matching `domain` and `backend_port` when creating the `Account`. |
+| `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **Downloading itself is not subject to this timeout** - only the startup that follows it. |
+
+The bundle is extracted into a `status-backend-bundle` folder in the current working directory, and reused on later calls instead of downloading again.
+
+```python
+from status_sdk import download_build_and_launch, Account
+
+# Downloads the latest release's asset matching this machine
+download_build_and_launch()
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+print(account.info["public_key"])
+
+# Stop the backend when you are done
+process.terminate()
+```
+
+Download a specific release tag from a private repository:
+
+```python
+from status_sdk import download_build_and_launch
+
+download_build_and_launch(
+    repo_name="status-im/status-go",
+    tag="v2.34.0",
+    token="ghp_xxxxxxxxxxxxxxxxxxxx"
+)
 ```
 
 ## Properties
