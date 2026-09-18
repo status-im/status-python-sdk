@@ -38,14 +38,25 @@ def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5,
     to_docker_path = lambda path: f"/mnt/{Path(path).drive.rstrip(':').lower()}/" + "/".join(Path(path).parts[1:]) if is_windows else path
     docker_path = to_docker_path(DOCKER_COMPOSE_PATH)
 
-    env_params = {
-        "STATUS_GO_COMMIT": ref,
-        "PLATFORM": platform
-    }
-
     with open(DOCKER_COMPOSE_PATH, "r") as f:
         docker_yaml_data: dict = yaml.load(f, Loader=yaml.SafeLoader)
 
+    if not commit:
+        url, _, _ = docker_yaml_data["services"]["backend"]["build"]["context"].partition("#")
+        org, repo = url.split("/")[-2:]
+        repo = repo.replace(".git", "")
+        response = requests.get(
+            f"https://api.github.com/repos/{org}/{repo}/commits",
+            headers={"Accept": "application/vnd.github.sha"},
+            timeout=30
+        )
+        commit = response.json()[0]["sha"]
+
+    logger.info(f"status-im/status-go SHA: {commit}")
+    env_params = {
+        "STATUS_GO_COMMIT": commit,
+        "PLATFORM": platform
+    }
     data_volume = '${DATA_DIR:-./data}:/data'
     current_volumes: list[str] = docker_yaml_data["services"]["backend"]["volumes"]
     if data_folder:

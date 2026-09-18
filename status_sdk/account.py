@@ -103,7 +103,9 @@ class Account:
             r'^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
             r'(?:-(?P<commits>\d+)-g(?P<sha>[0-9a-f]{7,40}))?$'
         )
-        self.__is_docker = not bool(version_regex.match(health_info.get("version", "")))
+        version = health_info.get("version", "")
+        self.__is_docker = not bool(version_regex.match(version))
+        self.__status_go_commit_sha = version if self.__is_docker else version_regex.match(version)["sha"]
 
         base_folder = os.path.dirname(__file__)
         if not self.__is_docker:
@@ -286,6 +288,10 @@ class Account:
     @property
     def logger(self) -> logging.Logger:
         return self.__logger
+
+    @property
+    def status_go_commit_sha(self) -> str:
+        return self.__status_go_commit_sha
 
     @property
     def available_accounts(self) -> list[dict]:
