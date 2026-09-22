@@ -267,7 +267,7 @@ class Channel:
         Output:
             - The message ID
         """
-        return self.__account.send_message(self.id, message, reply_to_message_id) if self.can_post else None
+        return self.__account.send_message(self.id, message, reply_to_message_id)
 
     def send_image(self, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> Optional[str]:
         """
@@ -281,7 +281,7 @@ class Channel:
         Output:
             - The message ID
         """
-        return self.__account.send_image(self.id, file_path, message, reply_to_message_id) if self.can_post else None
+        return self.__account.send_image(self.id, file_path, message, reply_to_message_id)
 
     def send_bridged_message(self, message: str, name: Optional[str] = None, username: Optional[str] = None, user_id: Optional[str] = None, message_id: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_url: Optional[str] = None) -> Optional[str]:
         """
@@ -299,7 +299,7 @@ class Channel:
         Output:
             - The message ID in Status App
         """
-        return self.__account.send_bridged_message(self.id, message, name, username, user_id, message_id, reply_to_message_id, image_url) if self.can_post else None
+        return self.__account.send_bridged_message(self.id, message, name, username, user_id, message_id, reply_to_message_id, image_url)
 
     def send_emoji_reaction(self, message_id: str, emoji_shortname: str):
         """
