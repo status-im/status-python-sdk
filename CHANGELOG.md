@@ -2,13 +2,29 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-22
+
+### Added
+
+- Build and launch [status-go] locally / inside already existing Docker container. Requires [nix] and [git] set up. 
+- Download build and launch [status-go] locally / inside already existing Docker container.
+- `class Account` has new property `status_go_commit_sha`
+
+### Fixed
+
+- Image RPC call for getting the current `profile_picture` returned `None` instead of an empty `list`.
+- If no `commit` is passed to `launch_docker_container`, the latest commit from the `develop` branch is now used.
+
+### Removed
+
+- Remove `can_post` check when sending community messages, reducing RPC calls to [status-go] to prevent it from crashing under heavy use. A custom error is now raised instead if the user lacks privileges to send messages in the channel.
 
 ## [1.1.6] - 2026-09-09
 
 ### Fixed
 
 - Real time
-    - `def listen_messages` monitors `status-im/status-go` property `messages` only instead of `messages` and `chats`
+    - `def listen_messages` monitors [status-go] property `messages` only instead of `messages` and `chats`
     - Unfiltered messages will return `dict` only instead of `dict` or `list[dict]`
 
 ## [1.1.5] - 2026-09-09
@@ -17,7 +33,7 @@ All notable changes to `status-python-sdk` will be documented in this file. The 
 
 - Real time
     - `def listen_messages` returns a single `Message` with multiple images, instead of a `Message` per image
-    - Remove duplicated `status-im/status-go` signals that have already been yielded
+    - Remove duplicated [status-go] signals that have already been yielded
 
 ## [1.1.4] - 2026-09-09
 
@@ -76,7 +92,7 @@ All notable changes to `status-python-sdk` will be documented in this file. The 
 
 ### Changed
 
-- Deleted messages would be flagged as deleted but not removed from the internal `status-im/status-go` database.
+- Deleted messages would be flagged as deleted but not removed from the internal [status-go] database.
 - `class Account` no longer logs out an already logged in account on initialization. Calling `def login` with the same account continues normally; calling it with a different account logs out the original one first.
 - `get_messages` supports `str` in format `YYYY-MM-DD`
 
@@ -89,7 +105,7 @@ All notable changes to `status-python-sdk` will be documented in this file. The 
     - `class GroupChat`
     - `class Channel`
 - Listen for new contact requests in real time
-- Swap Community Control Nodes between Status App and `status-im/status-go`
+- Swap Community Control Nodes between Status App and [status-go]
     - New `launch_docker_container` property
     - Add `data_folder` to `class Community`
 - Get community collectables
@@ -100,7 +116,7 @@ All notable changes to `status-python-sdk` will be documented in this file. The 
 
 ### Changed
 
-- `login` functionality in `class Account` supports Keccak-256 hash if the `data` folder has been copied over from another Status instance (`status-im/status-go` or Status App)
+- `login` functionality in `class Account` supports Keccak-256 hash if the `data` folder has been copied over from another Status instance ([status-go] or Status App)
 
 will try to log in without a hashed password
 
@@ -182,9 +198,10 @@ will try to log in without a hashed password
             - ETH to ERC-20
             - ERC-20 to ETH
             - ERC-20 to ERC-20
-- Launch `status-im/status-go` Docker container with Python instead of manual `docker compose up -d` setup.
+- Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.2.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.0
 [1.1.6]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.6
 [1.1.5]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.5
 [1.1.4]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.4
@@ -193,3 +210,8 @@ will try to log in without a hashed password
 [1.1.1]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.1
 [1.1.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.0
 [1.0.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.0.0
+
+[nix]: https://nixos.org/
+[git]: https://git-scm.com/
+[status-go]: https://github.com/status-im/status-go
+[status-backend]: https://github.com/status-im/status-go
