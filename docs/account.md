@@ -1821,7 +1821,7 @@ The exact shape depends on how the backend was launched:
 
 | Launched with | Reported version | `status_go_commit_sha` |
 |--------|--------|-------------|
-| [`build_and_launch`](./utils.md#build_and_launchcommitnone-repo_dirnone-addresslocalhost8080-wait_seconds30-install_depstrue) / [`download_build_and_launch`](./utils.md#download_build_and_launchfile_namenone-repo_namestatus-imstatus-go-tagnone-tokennone-addresslocalhost8080-wait_seconds30) | `v10.35.0-48-g9f09f9027` | `9f09f9027` - the short SHA, taken out of the `git describe` version |
+| [`build_and_launch`](./utils.md#build_and_launchcommitnone-repo_dirnone-addresslocalhost8080-wait_seconds30-install_depstrue) / [`download_build_and_launch`](./utils.md#download_build_and_launchlaunchernone-repo_namestatus-imstatus-go-tagnone-tokennone-addresslocalhost8080-wait_seconds30) | `v10.35.0-48-g9f09f9027` | `9f09f9027` - the short SHA, taken out of the `git describe` version |
 | [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) | `9f09f902762292fbe8264dd75a68e739ecd17444` | the same value, unchanged |
 
 The two differ because a native build is compiled inside a git clone, so `status-go` embeds a `git describe` version that the SDK extracts the SHA from. The Docker image is built from a git **context** that carries no `.git` folder, so `docker-compose.yaml` injects the ref it was told to build instead - meaning the full SHA comes back as-is.

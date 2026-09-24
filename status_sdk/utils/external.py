@@ -198,21 +198,29 @@ def build_and_launch(commit: Optional[str] = None, repo_dir: Optional[str] = Non
 
     builds.launch_build(binary_path, repo_dir, address, wait_seconds)
 
-def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = "status-im/status-go", tag: Optional[str] = None, token: Optional[str] = None, address: str = "localhost:8080", wait_seconds: int = 30):
+def download_build_and_launch(launcher: Optional[str] = None, repo_name: str = "status-im/status-go", tag: Optional[str] = None, token: Optional[str] = None, address: str = "localhost:8080", wait_seconds: int = 30):
     """
     Download a prebuilt `status-backend` bundle from a GitHub release, extract it and launch it.
     This is an alternative to `build_and_launch` for setups that do not want to build
     `status-im/status-go` from source - no Nix or Go toolchain is needed.
 
     Parameters:
-        - `file_name` - the release asset to download, exactly as it appears on the release page. If not provided, the asset matching this machine is picked
+        - `launcher` - the `status-backend` binary to launch
         - `repo_name` - the `owner/name` of the repository
         - `tag` - a release tag. If not provided, the latest release is used
         - `token` - a GitHub token. Required for private repositories
         - `address` - the `host:port` to launch `status-backend` on. Defaults to `localhost:8080`.
         - `wait_seconds` - number of seconds to wait, polling the health endpoint, before giving up on the backend starting. Downloading itself is not subject to this timeout.
+
+    Output:
+        - the `status-backend` binary to launch
     """
     logger = logging.getLogger(__name__)
+    destination = os.getcwd()
+    if launcher:
+        builds.launch_build(launcher, destination, address, wait_seconds)
+        return launcher
+
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -231,7 +239,6 @@ def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = 
 
     selected = assets[0]
     file_name = selected["name"]
-    destination = os.getcwd()
     archive_path = os.path.join(destination, file_name)
     bundle_dir = os.path.join(destination, "status-backend-bundle")
     if not os.path.exists(bundle_dir):
@@ -250,12 +257,16 @@ def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = 
                 if not os.path.basename(member.name).startswith("._")
             ]
 
+            common_prefix = os.path.commonpath([member.name for member in members])
+            for member in members:
+                member.name = os.path.relpath(member.name, common_prefix)
+
             # A bundle from a previous release must not mix with the new one
             shutil.rmtree(bundle_dir, ignore_errors=True)
             logger.info(f"Extracting '{file_name}' into {bundle_dir}...")
             # The `data` filter blocks paths escaping `destination`. Only available from Python 3.11.4
             extract_options = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
-            archive.extractall(destination, members=members, **extract_options)
+            archive.extractall(bundle_dir, members=members, **extract_options)
 
         os.remove(archive_path)
     else:
@@ -279,4 +290,4 @@ def download_build_and_launch(file_name: Optional[str] = None, repo_name: str = 
             logger.warning(f"Failed to clear quarantine attribute on {bundle_dir}: {result.stderr.strip()}")
 
     builds.launch_build(launcher, destination, address, wait_seconds)
-
+    return launcher

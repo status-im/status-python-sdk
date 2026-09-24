@@ -156,20 +156,20 @@ build_and_launch(address="localhost:9500", wait_seconds=60)
 account = Account(backend_port=9500)
 ```
 
-### `download_build_and_launch(file_name=None, repo_name="status-im/status-go", tag=None, token=None, address="localhost:8080", wait_seconds=30)`
+### `download_build_and_launch(launcher=None, repo_name="status-im/status-go", tag=None, token=None, address="localhost:8080", wait_seconds=30)`
 
-Download a prebuilt `status-backend` bundle from a GitHub release and launch it. This is an **alternative to [`build_and_launch`](./utils.md#build_and_launchcommitnone-repo_dirnone-addresslocalhost8080-wait_seconds30-install_depstrue)** for setups that do not want to build [`status-im/status-go`](https://github.com/status-im/status-go) from source.
+Download a prebuilt `status-backend` bundle from a GitHub release, extract it and launch it. This is an **alternative to [`build_and_launch`](./utils.md#build_and_launchcommitnone-repo_dirnone-addresslocalhost8080-wait_seconds30-install_depstrue)** for setups that do not want to build [`status-im/status-go`](https://github.com/status-im/status-go) from source - no Nix or Go toolchain is needed.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `file_name` | `str` | No | The release asset to download, exactly as it appears on the release page. When omitted, the asset matching this machine is picked using the pattern `status-backend_{platform}_{arch}_{version}`, e.g. `status-backend_linux_x86_64_2.34.0`. |
+| `launcher` | `str` | No | Path to a `status-backend` binary that is **already on disk**. When given, **nothing is downloaded**. Use it to re-launch a bundle you already have, or a binary from somewhere else entirely. |
 | `repo_name` | `str` | No | The `owner/name` of the repository to pull the release from. Defaults to `status-im/status-go`. |
 | `tag` | `str` | No | A release tag. When omitted, the latest release is used. |
 | `token` | `str` | No | A GitHub token. Required for private repositories. |
 | `address` | `str` | No | The `host:port` to run `status-backend` on. Defaults to `localhost:8080`, which matches the defaults of [`Account`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone). If you change it, pass the matching `domain` and `backend_port` when creating the `Account`. |
-| `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **Downloading itself is not subject to this timeout** - only the startup that follows it. |
+| `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **Downloading and extracting are not subject to this timeout** - only the startup that follows them. |
 
-The bundle is extracted into a `status-backend-bundle` folder in the current working directory, and reused on later calls instead of downloading again.
+Returns `str` - the path of the file that was launched. A custom exception is raised when the release has no asset for this machine, when the extracted bundle contains nothing runnable, or when the backend does not answer on `/health` in time.
 
 ```python
 from status_sdk import download_build_and_launch, Account
@@ -185,9 +185,6 @@ params = {
 account.login(**params)
 
 print(account.info["public_key"])
-
-# Stop the backend when you are done
-process.terminate()
 ```
 
 Download a specific release tag from a private repository:
@@ -195,12 +192,23 @@ Download a specific release tag from a private repository:
 ```python
 from status_sdk import download_build_and_launch
 
-download_build_and_launch(
+launcher = download_build_and_launch(
     repo_name="status-im/status-go",
     tag="v2.34.0",
     token="ghp_xxxxxxxxxxxxxxxxxxxx"
 )
+print(f"Launched {launcher}")
 ```
+
+Re-launch a bundle that is already on disk, with no network access at all:
+
+```python
+from status_sdk import download_build_and_launch
+
+download_build_and_launch("./status-backend-bundle/run.sh")
+```
+
+**Note**: if something already answers on `address`, the backend is **not** launched a second time and the function returns straight away. That makes repeated calls safe, but it also means a backend left running from an earlier session is reused - stop it first if you want a different build.
 
 ## Properties
 
