@@ -2,6 +2,14 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-09-25
+
+### Changed
+
+- `def download_build_and_launch`
+    - A `launcher` can be passed to launch a [status-go] build that is already on disk, skipping the release download and extraction
+    - The path of the launched build is now returned
+
 ## [1.2.0] - 2026-09-22
 
 ### Added
@@ -201,6 +209,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.2.1]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.1
 [1.2.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.0
 [1.1.6]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.6
 [1.1.5]: https://github.com/status-im/status-python-sdk/releases/tag/1.1.5
