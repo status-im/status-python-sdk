@@ -5,8 +5,8 @@ import shutil, os, subprocess, sys, time, yaml, logging, requests, stat, tarfile
 from pathlib import Path
 from platform import machine
 from typing import Optional
-from status_sdk import exceptions
-from status_sdk.utils import builds
+from .. import exceptions
+from . import builds
 
 def launch_docker_container(commit: Optional[str] = None, wait_seconds: int = 5, platform: str = "linux/amd64", data_folder: Optional[str] = None):
     """

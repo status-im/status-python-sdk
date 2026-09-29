@@ -1,4 +1,5 @@
-from status_sdk import Account, exceptions
+from .account import Account
+from . import exceptions
 from typing import Union, Optional
 import pandas as pd
 import re, datetime

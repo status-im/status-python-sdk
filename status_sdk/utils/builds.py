@@ -1,5 +1,5 @@
 import shutil, os, subprocess, time, logging, requests
-from status_sdk import exceptions
+from .. import exceptions
 
 def fix_nix_build_paths(binary_path: str) -> None:
     """

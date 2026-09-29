@@ -4,7 +4,7 @@ from typing import Self, Optional, Union
 import datetime
 import uuid
 
-from status_sdk.models import PaymentRequest
+from . import PaymentRequest
 
 
 class MessageContentTypeEnum:

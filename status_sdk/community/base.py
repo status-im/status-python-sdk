@@ -1,8 +1,9 @@
-from status_sdk import exceptions, Account
-from status_sdk.models import CommunityRequest
-from status_sdk.community import Channel
+from ..account import Account
+from .. import exceptions
+from ..models import CommunityRequest
+from .channel import Channel
 from typing import Union, Optional, Generator
-from status_sdk.utils import community as utils
+from ..utils import community as utils
 import pandas as pd
 import datetime, copy, os, shutil
 
