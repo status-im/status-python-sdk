@@ -2,14 +2,13 @@ from typing import Optional, Union, Generator, Any
 import uuid as uuid_lib
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
-from . import exceptions
+from status_sdk import exceptions
 from Crypto.Hash import keccak
 from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from status_sdk import models, constants
-from .signal import Signal
+from status_sdk import models, constants, Signal
 
 class Account:
     # Enum mappings from original wakuext.py

@@ -1,6 +1,6 @@
 from typing import Optional, Callable, Union
 import datetime, websocket, json, copy, queue, threading, time
-from . import exceptions
+from status_sdk import exceptions
 
 class Signal:
     """

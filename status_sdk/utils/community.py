@@ -1,5 +1,4 @@
-from ..account import Account
-from .. import exceptions
+from status_sdk import Account, exceptions
 from typing import Optional
 import pandas as pd
 
