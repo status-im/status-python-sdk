@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Self, Optional, Union
-import datetime, uuid
+import datetime
+import uuid
+
+from status_sdk.models import PaymentRequest
+
 
 @dataclass
 class ContactRequest:
@@ -13,56 +17,6 @@ class ContactRequest:
     def __post_init__(self):
         if not (self.incoming or self.accepted or self.removed):
             raise ValueError(f"A {self.__class__.__name__} must be `incoming`, `accepted` or `removed`")
-
-@dataclass
-class PaymentRequest:
-    to_address: str
-    token_symbol: str
-    token_address: str
-    chain_id: int
-    amount: str
-
-    @classmethod
-    def from_raw(cls, raw: dict) -> Self:
-        chain_id, token_address = raw["tokenKey"].split("-")
-        params = {
-            "to_address": raw["receiver"],
-            "token_symbol": raw["symbol"],
-            "token_address": token_address,
-            "chain_id": int(chain_id),
-            "amount": raw["amount"]
-        }
-        return cls(**params)
-
-@dataclass
-class BridgedContent:
-    message: str
-    name: Optional[str] = None
-    username: Optional[str] = None
-    user_id: Optional[Union[str, int]] = None
-    reply_to_message_id: Optional[Union[str, int]] = None
-    message_id: Optional[Union[str, int]] = None
-    image_url: Optional[str] = None
-
-    def __post_init__(self):
-        to_string = lambda value: str(value) if isinstance(value, int) else value
-
-        self.user_id = to_string(self.user_id)
-        self.reply_to_message_id = to_string(self.reply_to_message_id)
-        self.message_id = to_string(self.message_id)
-
-    @property
-    def status_go_params(self) -> dict:
-        content = {
-            "bridgeName": self.name or "Unknown",
-            "userName": self.username or "Anon",
-            "userAvatar": self.image_url or "",
-            "userID": self.user_id or str(uuid.uuid4()),
-            "content": self.message,
-            "messageID": self.message_id or str(uuid.uuid4()),
-            "parentMessageID": self.reply_to_message_id or "",
-        }
-        return content
 
 @dataclass
 class Message:
@@ -139,18 +93,33 @@ class Message:
         return cls(**params)
 
 
-@dataclass
-class CommunityRequest:
-    id: str
-    public_key: str
-    pending: bool = False
-    reject: bool = False
-    accept: bool = False
-    cancel: bool = False
 
 @dataclass
-class TokenPermission:
-    symbol: str
-    amount: float
-    chain_id: int = 1
-    address: Optional[str] = None
+class BridgedContent:
+    message: str
+    name: Optional[str] = None
+    username: Optional[str] = None
+    user_id: Optional[Union[str, int]] = None
+    reply_to_message_id: Optional[Union[str, int]] = None
+    message_id: Optional[Union[str, int]] = None
+    image_url: Optional[str] = None
+
+    def __post_init__(self):
+        to_string = lambda value: str(value) if isinstance(value, int) else value
+
+        self.user_id = to_string(self.user_id)
+        self.reply_to_message_id = to_string(self.reply_to_message_id)
+        self.message_id = to_string(self.message_id)
+
+    @property
+    def status_go_params(self) -> dict:
+        content = {
+            "bridgeName": self.name or "Unknown",
+            "userName": self.username or "Anon",
+            "userAvatar": self.image_url or "",
+            "userID": self.user_id or str(uuid.uuid4()),
+            "content": self.message,
+            "messageID": self.message_id or str(uuid.uuid4()),
+            "parentMessageID": self.reply_to_message_id or "",
+        }
+        return content

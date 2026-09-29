@@ -8,7 +8,7 @@ from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from . import constants, models
+from status_sdk import models, constants
 from .signal import Signal
 
 class Account:
@@ -952,6 +952,9 @@ class Account:
             2,  # Sticker
             4,  # Emojis
             7,  # Image
+            11, # Contact Request
+            15, # Send Contact Request
+            17, # Remove Contact
             18, # Bridged Message
         ]
         albums: dict[str, list[dict]] = {}
