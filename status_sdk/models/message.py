@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from typing import Self, Optional, Union
 import datetime
 import uuid
@@ -9,15 +9,26 @@ import json
 from . import PaymentRequest
 
 
-class MessageContentTypeEnum(Enum):
-    TEXT = 1,
-    STICKER = 2,
-    EMOJIS = 4,
-    IMAGE = 7,
-    CONTACT_REQUEST = 11,
-    SENT_CONTACT_REQUEST = 15,
-    REMOVED_CONTACT = 17,
-    BRIDGED_MESSAGE = 18
+class MessageContentTypeEnum(IntEnum):
+    UNKNOWN_CONTENT_TYPE = 0
+    TEXT_PLAIN = 1
+    STICKER = 2
+    STATUS = 3
+    EMOJI = 4
+    TRANSACTION_COMMAND = 5  # deprecated
+    SYSTEM_MESSAGE_CONTENT_PRIVATE_GROUP = 6  # local only
+    IMAGE = 7
+    AUDIO = 8
+    COMMUNITY = 9
+    SYSTEM_MESSAGE_GAP = 10  # local only
+    CONTACT_REQUEST = 11
+    DISCORD_MESSAGE = 12
+    IDENTITY_VERIFICATION = 13
+    SYSTEM_MESSAGE_PINNED_MESSAGE = 14  # local only
+    SYSTEM_MESSAGE_MUTUAL_EVENT_SENT = 15  # local only
+    SYSTEM_MESSAGE_MUTUAL_EVENT_ACCEPTED = 16  # local only
+    SYSTEM_MESSAGE_MUTUAL_EVENT_REMOVED = 17  # local only
+    BRIDGE_MESSAGE = 18
 
 @dataclass
 class ContactRequest:
@@ -43,7 +54,7 @@ class Message:
     timestamp: datetime.datetime
     message_type: int
     chat_type: str
-    images: list[str]
+    images_url: list[str]
     source: str
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
@@ -52,7 +63,7 @@ class Message:
 
     @classmethod
     def from_raw(cls, raw: dict) -> Self:
-        logging.info(json.dumps(raw))
+        logging.info(f"Raw message {json.dumps(raw)}")
         content_type: int = raw["contentType"]
         msg_type: int = raw["messageType"]
         params = {
@@ -64,7 +75,7 @@ class Message:
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgealloweName", "status"),
             "message_type": raw['contentType'],
-            "images": []
+            "images_url": []
         }
 
         if len(raw["responseTo"]) > 0:
@@ -90,8 +101,7 @@ class Message:
             params["content_type"] = "sticker"
         # Image
         elif content_type == 7:
-            if isinstance(raw["image"], str):
-                raw["images"] = raw["image"]
+            params["images_url"].append(raw["image"])
             params["content_type"] = "image"
         # Bridged Message
         elif content_type == 18:

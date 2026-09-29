@@ -673,7 +673,7 @@ class Account:
 
         return balance.copy()
 
-    def send_image(self, chat_id: str, file_path: list[str], message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    def send_image(self, chat_id: str, image_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send an image to the given chat.
 
@@ -686,7 +686,7 @@ class Account:
         Output:
             - The message ID
         """
-        return self.__send_content(chat_id, message, reply_to_message_id, image_path = file_path)
+        return self.__send_content(chat_id, message, reply_to_message_id, image_path)
 
     def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
@@ -768,7 +768,7 @@ class Account:
             chat_id: str,
             message: Optional[str] = None,
             reply_to_message_id: Optional[str] = None,
-            image_path: list[str] = [],
+            image_path: Optional[str] = None,
             bridged_content: Optional[BridgedContent] = None
         ) -> str:
         """
@@ -778,7 +778,7 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the text that will be sent. Optional when media is attached, so an image can be sent on its own
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
-            - `image_path` - list of local path to the images to attach.
+            - `image_path` - local path to the images to attach.
 
         Output:
             - The message ID
@@ -822,25 +822,24 @@ class Account:
 
         if asset_subfolder:
             docker_file_path.append(asset_subfolder)
-        content_image_path = []
+
         asset_file_path = None
-        for path in image_path:
-            validate_path(path)
-            docker_file_path.append(os.path.basename(path))
+        if image_path is not None:
+            validate_path(image_path)
+            docker_file_path.append(os.path.basename(image_path))
             asset_file_path = os.path.join(
-                    self.__assets_local_folder, asset_subfolder, os.path.basename(path))
+                    self.__assets_local_folder, asset_subfolder,
+                    os.path.basename(image_path))
             os.makedirs(os.path.dirname(asset_file_path), exist_ok=True)
             if os.path.exists(asset_file_path):
                 os.remove(asset_file_path)
 
-            shutil.copy(path, asset_file_path)
-            content_image_path.append(docker_file_path)
+            shutil.copy(image_path, asset_file_path)
 
-        if len(image_path):
             msg_params["contentType"] = 7
             msg_params.update({
-                "imagePath": content_image_path
-                })
+                "imagePath": docker_file_path
+            })
 
         if msg_params["contentType"] == 1 and len(msg_params["text"]) == 0:
             raise exceptions.SendContentError("Cannot send empty text messages")
