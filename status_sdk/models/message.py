@@ -3,11 +3,13 @@ from enum import Enum
 from typing import Self, Optional, Union
 import datetime
 import uuid
+import logging
+import json
 
 from . import PaymentRequest
 
 
-class MessageContentTypeEnum:
+class MessageContentTypeEnum(Enum):
     TEXT = 1,
     STICKER = 2,
     EMOJIS = 4,
@@ -37,11 +39,11 @@ class Message:
     text: str
     content_type: str
     from_public_key: str
-
     compressed_key: str
     timestamp: datetime.datetime
+    message_type: int
     chat_type: str
-    payload_urls: list[str]
+    images: list[str]
     source: str
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
@@ -50,6 +52,7 @@ class Message:
 
     @classmethod
     def from_raw(cls, raw: dict) -> Self:
+        logging.info(json.dumps(raw))
         content_type: int = raw["contentType"]
         msg_type: int = raw["messageType"]
         params = {
@@ -57,15 +60,17 @@ class Message:
             "text": raw["text"],
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
-            "compressed_key": raw["compressed_key"],
+            "compressed_key": raw["compressedKey"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgealloweName", "status"),
             "message_type": raw['contentType'],
+            "images": []
         }
 
         if len(raw["responseTo"]) > 0:
             params["reply_id"] = raw["responseTo"]
 
+        params["content"] = raw["text"]
         if msg_type == 1:
             params["chat_type"] = "private"
         elif msg_type in [2, 3]:
@@ -83,12 +88,10 @@ class Message:
         elif content_type == 2:
             params["content"] = raw["sticker"]["url"]
             params["content_type"] = "sticker"
-            params["payload_urls"].append(raw["sticker"]["url"])
         # Image
         elif content_type == 7:
             if isinstance(raw["image"], str):
-                raw["image"] = [raw["image"]]
-            params["payload_urls"] = [raw["image"]]
+                raw["images"] = raw["image"]
             params["content_type"] = "image"
         # Bridged Message
         elif content_type == 18:

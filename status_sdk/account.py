@@ -822,7 +822,7 @@ class Account:
 
         if asset_subfolder:
             docker_file_path.append(asset_subfolder)
-        content_image_path = ""
+        content_image_path = []
         asset_file_path = None
         for path in image_path:
             validate_path(path)
@@ -833,8 +833,8 @@ class Account:
             if os.path.exists(asset_file_path):
                 os.remove(asset_file_path)
 
-            shutil.copy(p, asset_file_path)
-            content_image_path = f"{content_image_path}//{docker_file_path}"
+            shutil.copy(path, asset_file_path)
+            content_image_path.append(docker_file_path)
 
         if len(image_path):
             msg_params["contentType"] = 7
