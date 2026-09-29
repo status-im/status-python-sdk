@@ -8,7 +8,8 @@ from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from status_sdk import models, constants, Signal
+from status_sdk import constants, Signal
+from status_sdk.models import Message, BridgedContent, ContactRequest
 
 class Account:
     # Enum mappings from original wakuext.py
@@ -717,7 +718,7 @@ class Account:
         Output:
             - The message ID in Status App
         """
-        content = models.BridgedContent(
+        content = BridgedContent(
             message=message,
             name=name,
             username=username,
@@ -767,7 +768,7 @@ class Account:
             message: Optional[str] = None,
             reply_to_message_id: Optional[str] = None,
             image_path: list[str] = [],
-            bridged_content: Optional[models.BridgedContent] = None
+            bridged_content: Optional[BridgedContent] = None
         ) -> str:
         """
         Send a message with optional media attached to the given chat.
@@ -891,7 +892,7 @@ class Account:
 
         return not any(errors) if errors else False
 
-    def listen_contact_requests(self) -> Generator[models.ContactRequest, None, None]:
+    def listen_contact_requests(self) -> Generator[ContactRequest, None, None]:
         """
         Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
         """
@@ -905,7 +906,7 @@ class Account:
             if message["type"] == "local-notifications":
                 category = event.get("category")
                 if category == "contactRequest":
-                    yield models.ContactRequest(
+                    yield ContactRequest(
                         message["event"]["body"]["message"]["id"],
                         message["event"]["body"]["message"]["from"],
                         incoming=True
@@ -924,9 +925,9 @@ class Account:
                         "public_key": public_key,
                         key_mapping[message["contentType"]]: True
                     }
-                    yield models.ContactRequest(**params)
+                    yield ContactRequest(**params)
 
-    def listen_message_mentions(self) -> Generator[models.Message, None, None]:
+    def listen_message_mentions(self) -> Generator[Message, None, None]:
         """
         Listen for `@0xpublic-key` mentions. Can be used for real time processing.
         """
@@ -941,9 +942,9 @@ class Account:
 
             current_text: str = event["body"]["message"]["text"]
             if mention_everyone in current_text or account_mention in current_text:
-                yield models.Message.from_raw(event["body"]["message"])
+                yield Message.from_raw(event["body"]["message"])
 
-    def listen_messages(self, listen_types: list[int] = []) -> Generator[models.Message, None, None]:
+    def listen_messages(self, listen_types: list[int] = []) -> Generator[Message, None, None]:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
         Parameters:
@@ -962,7 +963,7 @@ class Account:
                     continue
 
                 if not raw.get("albumId"):
-                    yield models.Message.from_raw(raw)
+                    yield Message.from_raw(raw)
                     processed.append(raw["id"])
                     continue
 
@@ -978,7 +979,7 @@ class Account:
                     point["image"]
                     for point in albums[album_id]
                 ]
-                yield models.Message.from_raw(raw)
+                yield Message.from_raw(raw)
                 processed.append(raw["id"])
                 albums.pop(album_id)
 

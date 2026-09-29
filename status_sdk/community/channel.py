@@ -1,5 +1,6 @@
-from status_sdk import exceptions, models, Account
+from status_sdk import exceptions, Account
 from status_sdk.utils import community as utils
+from status_sdk.models import TokenPermission
 from typing import Union, Optional
 import pandas as pd
 import re, datetime, random
@@ -341,7 +342,7 @@ class Channel:
         self.name
         return self.__account.delete_message(id)
 
-    def add_permission(self, permission: str, tokens: Optional[Union[list[models.TokenPermission], models.TokenPermission]] = None):
+    def add_permission(self, permission: str, tokens: Optional[Union[list[TokenPermission], TokenPermission]] = None):
         """
         Add a new permission for the channel
 
@@ -359,7 +360,7 @@ class Channel:
 
         token_criteria = []
         if tokens:
-            if isinstance(tokens, models.TokenPermission):
+            if isinstance(tokens, TokenPermission):
                 tokens = [tokens]
 
             available_tokens = self.__account.get_tokens()
