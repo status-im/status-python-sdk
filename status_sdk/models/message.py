@@ -1,10 +1,21 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Self, Optional, Union
 import datetime
 import uuid
 
 from status_sdk.models import PaymentRequest
 
+
+class MessageContentTypeEnum:
+    TEXT = 1,
+    STICKER = 2,
+    EMOJIS = 4,
+    IMAGE = 7,
+    CONTACT_REQUEST = 11,
+    SENT_CONTACT_REQUEST = 15,
+    REMOVED_CONTACT = 17,
+    BRIDGED_MESSAGE = 18
 
 @dataclass
 class ContactRequest:
@@ -23,13 +34,18 @@ class Message:
     id: str
     chat_id: str
     content: str
+    text: str
     content_type: str
     from_public_key: str
+
+    compressed_key: str
     timestamp: datetime.datetime
     chat_type: str
+    payload_urls: list[str]
     source: str
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
+    response_to: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
 
     @classmethod
@@ -38,23 +54,26 @@ class Message:
         msg_type: int = raw["messageType"]
         params = {
             "id": raw["id"],
+            "text": raw["text"],
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
+            "compressed_key": raw["compressed_key"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
-            "source": raw.get("bridgeMessage", {}).get("bridgeName", "status")
+            "source": raw.get("bridgeMessage", {}).get("bridgealloweName", "status"),
+            "message_type": raw['contentType'],
         }
 
         if len(raw["responseTo"]) > 0:
             params["reply_id"] = raw["responseTo"]
 
-        if msg_type == 5:
-            params["chat_type"] = "community"
-
-        elif msg_type == 1:
+        if msg_type == 1:
             params["chat_type"] = "private"
-
         elif msg_type in [2, 3]:
             params["chat_type"] = "group"
+        elif msg_type == 5:
+            params["chat_type"] = "community"
+        else:
+            params["chat_type"] = "unknown"
 
         # Text & Emojis
         if content_type in [1, 4]:
@@ -64,15 +83,12 @@ class Message:
         elif content_type == 2:
             params["content"] = raw["sticker"]["url"]
             params["content_type"] = "sticker"
+            params["payload_urls"].append(raw["sticker"]["url"])
         # Image
         elif content_type == 7:
             if isinstance(raw["image"], str):
                 raw["image"] = [raw["image"]]
-
-            img_paths: list[str] = raw["image"]
-            text = raw["text"]
-            caption = f"{text}\n\n" if len(text) > 0 else ""
-            params["content"] = caption + "\n".join(img_paths)
+            params["payload_urls"] = [raw["image"]]
             params["content_type"] = "image"
         # Bridged Message
         elif content_type == 18:
@@ -83,7 +99,8 @@ class Message:
             if isinstance(reply_id, str) and len(reply_id) == 0:
                 reply_id = None
             params["reply_id"] = reply_id
-
+        if raw["responseTo"]:
+            params["response_to"] = raw["responseTo"]
         payments = raw.get("paymentRequests", [])
         if payments:
             params["payment_requests"] = [
