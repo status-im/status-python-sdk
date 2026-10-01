@@ -42,7 +42,7 @@ class Account:
     __ETH_ADDRESS = "0x0000000000000000000000000000000000000000"
     __KECCAK256_ERROR = "failed to open database: failed to set `journal_mode` pragma: file is not a database"
     __INSTALLATION_NAME = "python-sdk"
-    def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None):
+    def __init__(self, domain: str = "localhost", backend_port: int = 8080, media_port: int = 9000, is_secure: bool = False, backup_folder: Optional[str] = None, volume_folder: Optional[str] = None, show_logs: bool = True):
         """
         Work with your own Status App account
 
@@ -53,6 +53,7 @@ class Account:
             - `is_secure` - if `http` or `https` should be used
             - `backup_folder` - where backup files will be created and loaded
             - `volume_folder` - directory containing the `backups` and `assets` folders mounted into the Status Backend Docker container (folder holding `docker-compose.yaml`). Defaults to this package's own installation folder. Set this when Status Backend is launched from a different `docker-compose.yaml` location, such as a local clone of the repo.
+            - `show_logs` - if `status-go` logs should be shown in Docker / Terminal
         """
         # Wallet transactions
         self.__alchemy_token = None
@@ -106,7 +107,7 @@ class Account:
         version = health_info.get("version", "")
         self.__is_docker = not bool(version_regex.match(version))
         self.__status_go_commit_sha = version if self.__is_docker else version_regex.match(version)["sha"]
-
+        self.__show_logs = show_logs
         base_folder = os.path.dirname(__file__)
         if not self.__is_docker:
             os.makedirs(base_folder, exist_ok=True)
@@ -236,8 +237,8 @@ class Account:
 
         url = self.__urls["http"][url_key]
         params.update({
-            "logEnabled": True,
-            "logToStderr": True,
+            "logEnabled": self.__show_logs,
+            "logToStderr": self.__show_logs,
             "logLevel": "INFO",
         })
         response = requests.post(url, json=params)

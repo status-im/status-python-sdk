@@ -55,7 +55,7 @@ Backup files (`.bkp`) can be both created in [Status App](https://our.status.im/
 
 **Note**: Status App will not automatically backup messages. This has to be manually overridden on the app (above screenshot). When using the Python SDK, the messages are automatically stored in the `.bkp` files.
 
-You can point [`backup_folder`](./account.md#accountdomainlocalhost-port8080-is_securefalse-backup_foldernone) at the folder Status App uses for its own local backups. Because both Status App and the SDK name `.bkp` files deterministically from the account's compressed key (see [`backup()`](./account.md#backup)), a backup created by the SDK lands with the exact filename Status App expects, and Status App will pick it up and load it directly - and likewise, a backup created in Status App can be auto-loaded by the SDK during recovery. This lets you move backups between the app and the SDK without renaming anything.
+You can point [`backup_folder`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone-show_logstrue) at the folder Status App uses for its own local backups. Because both Status App and the SDK name `.bkp` files deterministically from the account's compressed key (see [`backup()`](./account.md#backup)), a backup created by the SDK lands with the exact filename Status App expects, and Status App will pick it up and load it directly - and likewise, a backup created in Status App can be auto-loaded by the SDK during recovery. This lets you move backups between the app and the SDK without renaming anything.
 
 ```mermaid
 flowchart LR
@@ -114,7 +114,7 @@ The **Installation ID** should be used when calling [`sync`](./account.md#syncin
 
 ![Status App Sync 2](./images/account/syncing-2.png)
 
-## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None, volume_folder=None)`
+## `Account(domain="localhost", backend_port=8080, media_port=9000, is_secure=False, backup_folder=None, volume_folder=None, show_logs=True)`
 
 Create a new `Account` instance ready to be logged in. The constructor wires the SDK to a running [Status Backend](https://github.com/status-im/status-go) at the given `domain` and `backend_port`, prepares the local `assets/` folder (used for image uploads, such as the [profile picture](./account.md#profile_picture)) and `backups/` folder (used for [backup uploads](./account.md#backups) and recovery).
 
@@ -126,6 +126,7 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
 | `backup_folder` | `str` | No | Absolute path on the host machine where `.bkp` files will be created and loaded from. If not provided, the SDK's own `backups/` folder is used. See [Backups](./account.md#backups).  |
 | `volume_folder` | `str` | No | Directory containing the `docker-compose.yaml` whose `backups/` and `assets/` folders are mounted into the Status Backend container. Defaults to this package's own installation folder (e.g. the `status_sdk` folder under `site-packages` when installed via `pip`). Set this when Status Backend is launched from a different `docker-compose.yaml`, such as a local clone of the repository. |
+| `show_logs` | `bool` | No | Whether `status-go` logs are shown in Docker / Terminal. Defaults to `True`. |
 
 The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
 
