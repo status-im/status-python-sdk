@@ -439,15 +439,15 @@ account.send_message(
 )
 ```
 
-#### `send_image(chat_id, file_path, message=None, reply_to_message_id=None)`
+#### `send_image(chat_id, image_paths, message=None, reply_to_message_id=None)`
 
-Send an image to a specific chat, with an optional text message. The image renders inline in Status App, the same as attaching an image in the app. Like [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone), it can be sent as a **reply** to an existing message.
+Send one or more images to a specific chat, with an optional text message. Multiple images are grouped into a single album, the same as attaching several images in Status App. The image renders inline in Status App, the same as attaching an image in the app. Like [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone), it can be sent as a **reply** to an existing message.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `chat_id` | `str` | Yes | Identifier of the chat where the image will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
-| `file_path` | `str` | Yes | Local full path to the image file. |
-| `message` | `str` | No | Caption sent together with the image. Cannot be longer than **2000 characters**. When omitted (default), the image is sent without any text. |
+| `image_paths` | `list[str]` | Yes | Local full paths to the image files. |
+| `message` | `str` | No | Caption sent together with the images. Cannot be longer than **2000 characters**. When omitted (default), the images are sent without any text. |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the image is sent as a standalone message. |
 
 Returns `str` - the `id` of the message that was just sent, exactly as [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) does, so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message.
@@ -464,7 +464,7 @@ account.login(**params)
 
 # This is under the assumption you already have a contact / joined a community
 chat = account.chats[0]
-message_id = account.send_image(chat["id"], "/full/file-path/meme-67.png")
+message_id = account.send_image(chat["id"], ["/full/file-path/meme-67.png"])
 print(f"Sent image: {message_id}")
 ```
 
@@ -484,7 +484,7 @@ chat = account.chats[0]
 
 account.send_image(
     chat_id=chat["id"],
-    file_path="/full/file-path/meme-67.png",
+    image_paths=["/full/file-path/meme-67.png"],
     message="Du bist gut genug"
 )
 ```
@@ -509,7 +509,7 @@ latest = messages[0]
 
 account.send_image(
     chat_id=chat["id"],
-    file_path="/full/file-path/meme-67.png",
+    image_paths=["/full/file-path/meme-67.png"],
     message="Du bist gut genug",
     reply_to_message_id=latest["id"]
 )
@@ -527,7 +527,7 @@ Relay a message that came from **another messaging platform** - Discord, Telegra
 | `username` | `str` | No | The author's username **on the other platform**, shown as the sender. Defaults to `Anon`. |
 | `user_id` | `str` | No | The author's id on the other platform. Status uses it to tell one bridged author from another, so **pass the real id** - see the note below. |
 | `message_id` | `str` | No | The original message's id on the other platform. Pass it if you want later messages to be able to reply to this one. |
-| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id. Unlike in [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. Passing a Status id will not thread. |
+| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id. Unlike in [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) and [`send_image`](./account.md#send_imagechat_id-image_paths-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. Passing a Status id will not thread. |
 | `image_url` | `str` | No | URL of the author's avatar on the other platform. Defaults to no avatar. |
 
 Returns `str` - the `id` of the message **in Status App**, which is a different value from the `message_id` you passed in. It can be used with [`delete_message`](./account.md#delete_messageid) like any other sent message.
@@ -588,7 +588,7 @@ Passing `chat_id` is purely an **optimisation**. Without it the chat has to be r
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), from the `lastMessage` of a [`listen_messages`](./account.md#listen_messages) event, or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) / [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone). |
+| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), from the `lastMessage` of a [`listen_messages`](./account.md#listen_messages) event, or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) / [`send_image`](./account.md#send_imagechat_id-image_paths-messagenone-reply_to_message_idnone). |
 | `emoji_shortname` | `str` | Yes | The emoji shortname as in Status App, with or without the surrounding colons. See [Emojis](./utils.md#emojis) for all supported values. |
 | `chat_id` | `str` | No | Identifier of the chat the message belongs to, as found in the [`chats`](./account.md#chats) property. When omitted (default), it is resolved from `message_id` with an extra call to the Status Backend. |
 

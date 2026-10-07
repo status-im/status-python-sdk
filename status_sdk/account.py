@@ -2,14 +2,26 @@ from typing import Optional, Union, Generator, Any
 import uuid as uuid_lib
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
+
 from . import exceptions
 from Crypto.Hash import keccak
 from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from . import constants, models
+from . import constants
 from .signal import Signal
+from .models import Message, BridgedContent, ContactRequest
+
+
+def in_docker() -> bool:
+    if os.path.exists("/.dockerenv"):
+        return True
+    try:
+        with open("/proc/1/cgroup") as f:
+            return any("docker" in line or "kubepods" in line for line in f)
+    except OSError:
+        return False
 
 class Account:
     # Enum mappings from original wakuext.py
@@ -104,8 +116,8 @@ class Account:
             r'(?:-(?P<commits>\d+)-g(?P<sha>[0-9a-f]{7,40}))?$'
         )
         version = health_info.get("version", "")
-        self.__is_docker = not bool(version_regex.match(version))
-        self.__status_go_commit_sha = version if self.__is_docker else version_regex.match(version)["sha"]
+        self.__is_docker = in_docker()
+        self.__status_go_commit_sha = version # if self.__is_docker else version_regex.match(version)["sha"]
 
         base_folder = os.path.dirname(__file__)
         if not self.__is_docker:
@@ -672,20 +684,20 @@ class Account:
 
         return balance.copy()
 
-    def send_image(self, chat_id: str, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    def send_image(self, chat_id: str, image_paths: list[str], message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send an image to the given chat.
 
         Parameters:
             - `chat_id` - the chat ID can be found in `self.chats`
-            - `file_path` - the file path of the image
+            - `image_paths` - the file paths of the images
             - `message` - the message that will be sent
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
 
         Output:
             - The message ID
         """
-        return self.__send_content(chat_id, message, reply_to_message_id, image_path = file_path)
+        return self.__send_content(chat_id, message, reply_to_message_id, image_paths)
 
     def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
@@ -718,7 +730,7 @@ class Account:
         Output:
             - The message ID in Status App
         """
-        content = models.BridgedContent(
+        content = BridgedContent(
             message=message,
             name=name,
             username=username,
@@ -762,7 +774,14 @@ class Account:
         if error:
             raise exceptions.ChatNotFoundError(error.get("message"))
 
-    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None, bridged_content: Optional[models.BridgedContent] = None) -> str:
+    def __send_content(
+            self,
+            chat_id: str,
+            message: Optional[str] = None,
+            reply_to_message_id: Optional[str] = None,
+            image_paths: Optional[list[str]] = None,
+            bridged_content: Optional[BridgedContent] = None
+        ) -> str:
         """
         Send a message with optional media attached to the given chat.
 
@@ -770,7 +789,7 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the text that will be sent. Optional when media is attached, so an image can be sent on its own
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
-            - `image_path` - local path to the image to attach.
+            - `image_paths` - List of local paths to the images to attach. No images are attached when omitted.
 
         Output:
             - The message ID
@@ -788,34 +807,24 @@ class Account:
 
             return path
 
-        self.info
         if not message:
             message = ""
 
         if len(message) > self.message_length:
             raise exceptions.MessageTooLongError(f"Message cannot be longer than 2000 characters (got {len(message)})...")
 
+        image_paths = image_paths or []
+        params = []
         msg_params = {
             "chatId": chat_id,
             "text": message,
             "contentType": 1, # Normal message
             "responseTo": reply_to_message_id if reply_to_message_id else ""
         }
-        # Content status-go key name for RPC request
-        content_key = None
-        # Non `status-im/status-go` path
-        file_path = None
         # File path in `status-im/status-go`
         docker_file_path = [self.__docker_asset_folder]
         # subfolder name in ./assets/ (if necessary)
-        asset_subfolder = None
-
-        if image_path:
-            image_path = validate_path(image_path)
-            file_path = image_path
-            msg_params["contentType"] = 7
-            content_key = "imagePath"
-            asset_subfolder = "images"
+        asset_subfolder = "images"
 
         if bridged_content:
             msg_params["text"] = ""
@@ -825,28 +834,45 @@ class Account:
         if asset_subfolder:
             docker_file_path.append(asset_subfolder)
 
-        asset_file_path = None
-        if file_path:
-            docker_file_path.append(os.path.basename(file_path))
-            asset_file_path = os.path.join(self.__assets_local_folder, asset_subfolder, os.path.basename(file_path))
+        asset_file_paths = []
+        print(image_paths)
+        for image_path in image_paths:
+            validate_path(image_path)
+            asset_file_path = os.path.join(
+                    self.__assets_local_folder, asset_subfolder,
+                    os.path.basename(image_path))
             os.makedirs(os.path.dirname(asset_file_path), exist_ok=True)
             if os.path.exists(asset_file_path):
                 os.remove(asset_file_path)
 
-            shutil.copy(file_path, asset_file_path)
+            shutil.copy(image_path, asset_file_path)
+            asset_file_paths.append(asset_file_path)
 
-        if content_key:
+            msg_params["contentType"] = 7
+            # Path as seen by `status-im/status-go` - the mounted assets folder
+            _image_path = image_path
+            if self.__is_docker:
+                _image_path = "/".join(docker_file_path + [os.path.basename(image_path)])
+
             msg_params.update({
-                content_key: "/".join(docker_file_path)
+                "imagePath": _image_path
             })
+            # One message per image - `msg_params` is mutated, so copy it
+            params.append(msg_params.copy())
+        print(f"Messages {params}")
 
         if msg_params["contentType"] == 1 and len(msg_params["text"]) == 0:
             raise exceptions.SendContentError("Cannot send empty text messages")
 
-        params = [msg_params]
-        response = self._call_rpc("messaging", "sendChatMessage", params)
-        if asset_file_path and os.path.exists(asset_file_path):
-            os.remove(asset_file_path)
+        if len(image_paths) == 0:
+            params = [msg_params]
+
+        # `status-im/status-go` expects the list of messages as a single
+        # RPC argument (`[]*common.Message`)
+        response = self._call_rpc("messaging", "sendChatMessages", [params])
+        for asset_file_path in asset_file_paths:
+            if os.path.exists(asset_file_path):
+                os.remove(asset_file_path)
 
         error = response.get("error", {}) or {}
         if error:
@@ -891,7 +917,7 @@ class Account:
 
         return not any(errors) if errors else False
 
-    def listen_contact_requests(self) -> Generator[models.ContactRequest, None, None]:
+    def listen_contact_requests(self) -> Generator[ContactRequest, None, None]:
         """
         Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
         """
@@ -905,7 +931,7 @@ class Account:
             if message["type"] == "local-notifications":
                 category = event.get("category")
                 if category == "contactRequest":
-                    yield models.ContactRequest(
+                    yield ContactRequest(
                         message["event"]["body"]["message"]["id"],
                         message["event"]["body"]["message"]["from"],
                         incoming=True
@@ -924,9 +950,9 @@ class Account:
                         "public_key": public_key,
                         key_mapping[message["contentType"]]: True
                     }
-                    yield models.ContactRequest(**params)
+                    yield ContactRequest(**params)
 
-    def listen_message_mentions(self) -> Generator[models.Message, None, None]:
+    def listen_message_mentions(self) -> Generator[Message, None, None]:
         """
         Listen for `@0xpublic-key` mentions. Can be used for real time processing.
         """
@@ -941,19 +967,15 @@ class Account:
 
             current_text: str = event["body"]["message"]["text"]
             if mention_everyone in current_text or account_mention in current_text:
-                yield models.Message.from_raw(event["body"]["message"])
+                yield Message.from_raw(event["body"]["message"])
 
-    def listen_messages(self) -> Generator[models.Message, None, None]:
+    def listen_messages(self, listen_types: list[int] = []) -> Generator[Message, None, None]:
         """
         Listen for new **RAW** messages continuously. Can be used for real time processing.
+        Parameters:
+            - listen_types: List(int), limit the messages to only the specified type.
+              Default all messages
         """
-        ALLOWED_CONTENT_TYPES = [
-            1,  # Text
-            2,  # Sticker
-            4,  # Emojis
-            7,  # Image
-            18, # Bridged Message
-        ]
         albums: dict[str, list[dict]] = {}
         processed: list[str] = []
         SIZE = 100
@@ -961,11 +983,12 @@ class Account:
             event: dict = message.get("event", {})
             raw_messages: list[dict] = event.get("messages", [])
             for raw in raw_messages:
-                if raw["contentType"] not in ALLOWED_CONTENT_TYPES or raw["id"] in processed:
+                is_message_type_allowed = len(listen_types) == 0 or raw["contentType"] in listen_types
+                if not is_message_type_allowed or raw["id"] in processed:
                     continue
 
                 if not raw.get("albumId"):
-                    yield models.Message.from_raw(raw)
+                    yield Message.from_raw(raw)
                     processed.append(raw["id"])
                     continue
 
@@ -981,7 +1004,7 @@ class Account:
                     point["image"]
                     for point in albums[album_id]
                 ]
-                yield models.Message.from_raw(raw)
+                yield Message.from_raw(raw)
                 processed.append(raw["id"])
                 albums.pop(album_id)
 

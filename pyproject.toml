@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "status-sdk"
-version = "1.2.1"
+version = "1.3.0"
 description = "Private chat. Communities. Multi-chain wallet. Browser. dApps all in one app, powered by SNT."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -54,7 +54,7 @@ Issues = "https://github.com/status-im/status-python-sdk/issues"
 "Status Backend" = "https://github.com/status-im/status-go"
 
 [tool.setuptools]
-packages = ["status_sdk", "status_sdk.community", "status_sdk.utils"]
+packages = ["status_sdk", "status_sdk.community", "status_sdk.utils", "status_sdk.models"]
 
 [tool.setuptools.package-data]
 status_sdk = ["docker-compose.yaml"]

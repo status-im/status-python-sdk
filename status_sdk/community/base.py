@@ -1,5 +1,6 @@
 from ..account import Account
-from .. import exceptions, models
+from .. import exceptions
+from ..models import CommunityRequest
 from .channel import Channel
 from typing import Union, Optional, Generator
 from ..utils import community as utils
@@ -282,7 +283,7 @@ class Community:
         params = [self.id, channel.id.replace(self.id, "")]
         self.__account._call_rpc("messaging", "deleteCommunityChat", params)
 
-    def listen_requests(self) -> Generator[models.CommunityRequest, None, None]:
+    def listen_requests(self) -> Generator[CommunityRequest, None, None]:
         """
         Listen for commnunity requests
         """
@@ -306,7 +307,7 @@ class Community:
                     "public_key": request["publicKey"],
                     state: True
                 }
-                yield models.CommunityRequest(**params)
+                yield CommunityRequest(**params)
 
     @property
     def categories(self) -> dict[str, str]:
