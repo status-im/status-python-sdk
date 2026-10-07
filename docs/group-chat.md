@@ -223,17 +223,17 @@ latest = messages[0]
 group_chat.send_message("Thanks for the update!", latest["id"])
 ```
 
-### `send_image(file_path, message=None, reply_to_message_id=None)`
+### `send_image(file_paths, message=None, reply_to_message_id=None)`
 
-Send an image to the group chat, with an optional text **caption**. The image renders inline in Status App, the same as attaching an image in the app. Like [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone), it can be sent as a **reply** to an existing message in the chat.
+Send one or more images to the group chat, with an optional text **caption**. Images render inline in Status App, the same as attaching an image in the app. When more than one path is passed, the images are sent together as an **album** - a single group of images sharing one caption - rather than as separate messages. Like [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone), it can be sent as a **reply** to an existing message in the chat.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `file_path` | `str` | Yes | Local full path to the image file. |
-| `message` | `str` | No | Caption sent together with the image. |
+| `file_paths` | `list[str]`<br>`str` | Yes | Local full path(s) to the image file(s). A single value can be passed as a `str`. Passing more than one path sends all of them together as a single **album**. |
+| `message` | `str` | No | Caption sent together with the image(s). |
 | `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone). When omitted (default), the image is sent as a standalone message. |
 
-Returns `str` - the `id` of the message that was just sent, delegated from [`send_image`](./account.md#send_imagechat_id-file_path-messagenone-reply_to_message_idnone) on `Account`. It is the same identifier that appears under the `id` key in [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./group-chat.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message.
+Returns `str` - the `id` of the message that was just sent, delegated from [`send_image`](./account.md#send_imagechat_id-file_paths-messagenone-reply_to_message_idnone) on `Account`. It is the same identifier that appears under the `id` key in [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./group-chat.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message. For an album, this is the id of its last image - `get_messages` returns each image in the album as its own entry rather than merging them.
 
 ```python
 from status_sdk import Account, GroupChat
@@ -252,6 +252,24 @@ message_id = group_chat.send_image("./meme-67.png", "Daily random meme")
 print(f"Sent image: {message_id}")
 ```
 
+Send multiple images together as an album:
+
+```python
+from status_sdk import Account, GroupChat
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+chat = [chat for chat in account.chats if chat["type"] == "group_chat"][0]
+group_chat = GroupChat(account, chat["id"])
+
+group_chat.send_image(["./meme-67.png", "./meme-68.png"], "Daily random memes")
+```
+
 ### `send_bridged_message(message, name=None, username=None, user_id=None, message_id=None, reply_to_message_id=None, image_url=None)`
 
 Relay a message that came from **another messaging platform** - Discord, Telegram, Slack, IRC - into the group chat. Status App renders it as a **bridged message**: the original author's name and avatar are shown, along with the platform it came from, instead of the message appearing to come from the bot account. Use [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) when the bot is speaking as itself.
@@ -263,7 +281,7 @@ Relay a message that came from **another messaging platform** - Discord, Telegra
 | `username` | `str` | No | The author's username **on the other platform**, shown as the sender. Defaults to `Anon`. |
 | `user_id` | `str` | No | The author's id on the other platform. Status uses it to tell one bridged author from another, so **pass the real id** - see the note below. |
 | `message_id` | `str` | No | The original message's id on the other platform. Pass it if you want later messages to be able to reply to this one. |
-| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id, unlike in [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) and [`send_image`](./group-chat.md#send_imagefile_path-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. |
+| `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id, unlike in [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) and [`send_image`](./group-chat.md#send_imagefile_paths-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. |
 | `image_url` | `str` | No | URL of the author's avatar on the other platform. Defaults to no avatar. |
 
 Returns `str` - the `id` of the message **in Status App**, delegated from [`send_bridged_message`](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) on `Account`. This is a different value from the `message_id` you passed in, and it can be used with [`delete_message`](./group-chat.md#delete_messageid) like any other sent message.
@@ -300,7 +318,7 @@ Emojis are identified by their **shortname**, exactly as Status App names them (
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), or directly from the return value of [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) / [`send_image`](./group-chat.md#send_imagefile_path-messagenone-reply_to_message_idnone). |
+| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./group-chat.md#get_messagesstart_timestampnone-end_timestampnone), or directly from the return value of [`send_message`](./group-chat.md#send_messagemessage-reply_to_message_idnone) / [`send_image`](./group-chat.md#send_imagefile_paths-messagenone-reply_to_message_idnone). |
 | `emoji_shortname` | `str` | Yes | The emoji shortname as in Status App, with or without the surrounding colons. See [Emojis](./utils.md#emojis) for all supported values. |
 
 ```python

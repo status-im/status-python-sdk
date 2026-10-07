@@ -3,6 +3,7 @@ import uuid as uuid_lib
 import requests, datetime, re, logging, os, json, ast, shutil, eth_abi, shutil
 import pandas as pd
 from . import exceptions
+from pathlib import Path
 from Crypto.Hash import keccak
 from io import BytesIO
 from PIL import Image
@@ -673,20 +674,20 @@ class Account:
 
         return balance.copy()
 
-    def send_image(self, chat_id: str, file_path: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
+    def send_image(self, chat_id: str, file_paths: Union[str, list[str]], message: Optional[str] = None, reply_to_message_id: Optional[str] = None) -> str:
         """
         Send an image to the given chat.
 
         Parameters:
             - `chat_id` - the chat ID can be found in `self.chats`
-            - `file_path` - the file path of the image
+            - `file_paths` - the file paths of the images
             - `message` - the message that will be sent
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
 
         Output:
             - The message ID
         """
-        return self.__send_content(chat_id, message, reply_to_message_id, image_path = file_path)
+        return self.__send_content(chat_id, message, reply_to_message_id, image_paths = file_paths)
 
     def send_message(self, chat_id: str, message: str, reply_to_message_id: Optional[str] = None) -> str:
         """
@@ -763,7 +764,7 @@ class Account:
         if error:
             raise exceptions.ChatNotFoundError(error.get("message"))
 
-    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_path: Optional[str] = None, bridged_content: Optional[models.BridgedContent] = None) -> str:
+    def __send_content(self, chat_id: str, message: Optional[str] = None, reply_to_message_id: Optional[str] = None, image_paths: Optional[Union[str, list[str]]] = None, bridged_content: Optional[models.BridgedContent] = None) -> str:
         """
         Send a message with optional media attached to the given chat.
 
@@ -771,7 +772,7 @@ class Account:
             - `chat_id` - the chat ID can be found in `self.chats`
             - `message` - the text that will be sent. Optional when media is attached, so an image can be sent on its own
             - `reply_to_message_id` - the `id` of the message to reply to, as it appears in `self.get_messages()`. If not provided, the message is sent as a standalone message.
-            - `image_path` - local path to the image to attach.
+            - `image_paths` - local paths of the images to attach
 
         Output:
             - The message ID
@@ -789,6 +790,18 @@ class Account:
 
             return path
 
+        def to_list(paths: Optional[Union[str, list[str]]] = None) -> list[str]:
+            """
+            Make sure the path is always a list
+            """
+            if isinstance(paths, str):
+                paths = [paths]
+
+            if isinstance(paths, type(None)):
+                paths = []
+
+            return paths
+
         self.info
         if not message:
             message = ""
@@ -796,6 +809,7 @@ class Account:
         if len(message) > self.message_length:
             raise exceptions.MessageTooLongError(f"Message cannot be longer than 2000 characters (got {len(message)})...")
 
+        image_paths = to_list(image_paths)
         msg_params = {
             "chatId": chat_id,
             "text": message,
@@ -805,15 +819,15 @@ class Account:
         # Content status-go key name for RPC request
         content_key = None
         # Non `status-im/status-go` path
-        file_path = None
+        file_paths = []
         # File path in `status-im/status-go`
         docker_file_path = [self.__docker_asset_folder]
         # subfolder name in ./assets/ (if necessary)
         asset_subfolder = None
 
-        if image_path:
-            image_path = validate_path(image_path)
-            file_path = image_path
+        if image_paths:
+            image_paths = [validate_path(path) for path in image_paths]
+            file_paths = [*image_paths]
             msg_params["contentType"] = 7
             content_key = "imagePath"
             asset_subfolder = "images"
@@ -826,28 +840,37 @@ class Account:
         if asset_subfolder:
             docker_file_path.append(asset_subfolder)
 
-        asset_file_path = None
-        if file_path:
-            docker_file_path.append(os.path.basename(file_path))
+        params = []
+        asset_file_paths = []
+        for file_path in file_paths:
+            current_docker_file_path = [*docker_file_path]
+            current_docker_file_path.append(os.path.basename(file_path))
             asset_file_path = os.path.join(self.__assets_local_folder, asset_subfolder, os.path.basename(file_path))
             os.makedirs(os.path.dirname(asset_file_path), exist_ok=True)
             if os.path.exists(asset_file_path):
                 os.remove(asset_file_path)
 
             shutil.copy(file_path, asset_file_path)
-
-        if content_key:
-            msg_params.update({
-                content_key: "/".join(docker_file_path)
+            asset_file_paths.append(asset_file_path)
+            params.append({
+                **msg_params,
+                content_key: str(Path("/".join(current_docker_file_path)))
             })
 
         if msg_params["contentType"] == 1 and len(msg_params["text"]) == 0:
             raise exceptions.SendContentError("Cannot send empty text messages")
 
-        params = [msg_params]
-        response = self._call_rpc("messaging", "sendChatMessage", params)
-        if asset_file_path and os.path.exists(asset_file_path):
-            os.remove(asset_file_path)
+        rpc_method = "sendChatMessages"
+        if len(params) == 0:
+            params = [msg_params]
+            rpc_method = rpc_method[:-1]
+        else:
+            params = [params]
+
+        response = self._call_rpc("messaging", rpc_method, params)
+        for asset_file_path in asset_file_paths:
+            if asset_file_path and os.path.exists(asset_file_path):
+                os.remove(asset_file_path)
 
         error = response.get("error", {}) or {}
         if error:
