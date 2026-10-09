@@ -20,16 +20,29 @@ The image is always rebuilt (`docker compose up --build`) so a newly chosen `com
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `commit` | `str` | No | The `status-im/status-go` git ref to build from - a commit SHA, branch, or tag. When omitted, the latest `develop` branch is built. |
+| `commit` | `str` | No | The `status-im/status-go` git ref to build from - a commit SHA, branch, or tag. When omitted, the newest commit is **resolved to a full SHA** before the build starts - see [Resolving the commit](./utils.md#resolving-the-commit). |
 | `wait_seconds` | `int` | No | Number of seconds to pause after the `docker compose up` command returns, giving Status Backend enough time to finish booting before subsequent code runs. Defaults to `5`. This matters mainly when the container already exists and is being restarted, because `docker compose up` returns immediately while the backend is still warming up - instantiating [`Account`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone-show_logstrue) too quickly will fail to connect. On [Windows](./utils.md#windows) the same value is used to wait between retries after WSL has been restarted. |
 | `platform` | `str` | No | The platform the image is built for. Defaults to `linux/amd64`. Run `docker buildx ls` to see the platforms your Docker installation supports, and pass the matching value if the default does not build on your machine. |
 | `data_folder` | `str` | No | The folder on **your machine** where Status Backend keeps the accounts it creates. If you are a **[Community Control Node](./community.md#control-node)** you will need to create a Docker container with a volume folder, and pass that **same** folder to [`Community`](./community.md#communityaccount-community_idnone-urlnone-data_foldernone) so [`upload_control_node`](./community.md#upload_control_nodefolder) can reach it. |
+
+#### Resolving the commit
+
+When no `commit` is given, the repository is read out of the `context` in `docker-compose.yaml` and its newest commit is looked up through the **GitHub API**, so `STATUS_GO_COMMIT` is always a concrete 40-character SHA rather than a branch name. The resolved value is logged:
+
+```
+2026-10-09 13:39:48 [INFO] status_sdk.utils.external: status-im/status-go SHA: f89efa62503f4969b8b78a19f7ccf98ef08d4bf5
+```
+
+This way:
+
+- The build is reproducible.
+- The version is stamped into the image.
 
 Wait time after container has launched:
 ```python
 from status_sdk import launch_docker_container
 
-# Build from the latest develop branch
+# Resolves the newest commit, then builds it
 launch_docker_container(wait_seconds=10)
 ```
 
@@ -104,24 +117,26 @@ Build `status-backend` **natively** from a local clone of [`status-im/status-go`
 |---|---|---|
 | Needs | Docker (and WSL on Windows) | Nix and `git` |
 | Windows | Supported | **Not supported** - use Docker, or run from inside WSL |
-| Backend runs as | A container | A process on your machine |
-| Stopping it | `docker compose down` | Terminate the returned process |
+| Backend runs as | A container | A child process of your script |
+| Stopping it | `docker compose down` | `Ctrl+C`, or `pkill -f status-backend` |
 
 The build runs inside the repository's **Nix dev shell**, so the Go toolchain and every build dependency come from Nix rather than your system - nothing has to be installed by hand beyond Nix itself.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `commit` | `str` | No | The `status-im/status-go` git commit SHA,. When omitted, the latest `develop` branch is built. |
+| `commit` | `str` | No | The `status-im/status-go` git ref to build - a commit SHA, branch, or tag. When omitted, the latest `develop` branch is built. |
 | `repo_dir` | `str` | No | Local folder to clone `status-go` into, and reuse on later calls. Defaults to a `status-go` folder next to this package's installation. When the folder does not already hold a clone, the repository is fetched from GitHub. |
 | `address` | `str` | No | The `host:port` to run `status-backend` on. Defaults to `localhost:8080`, which matches the defaults of [`Account`](./account.md#accountdomainlocalhost-backend_port8080-media_port9000-is_securefalse-backup_foldernone-volume_foldernone-show_logstrue). If you change it, pass the matching `domain` and `backend_port` when creating the `Account`. |
 | `wait_seconds` | `int` | No | How long to poll the backend's `/health` endpoint before giving up, in seconds. Defaults to `30`. **The build itself is not subject to this timeout** - only the startup that follows it. |
 | `install_deps` | `bool` | No | Whether to run `make status-go-deps` before building. This also runs `go clean -cache` and `go clean -modcache`, which throws away every cached Go build on your machine and makes the next build much slower. Only needed on a first build or after a Go toolchain upgrade. |
 
+Returns `None` - the function waits until the backend answers on `/health` and then hands control back, leaving it running in the background. A custom exception is raised when Nix or `git` are missing, when you are on Windows, when any git or build step fails, when the binary is missing after the build, or when the backend does not become reachable within `wait_seconds`.
+
 ```python
 from status_sdk import build_and_launch, Account
 
 # First run clones status-go and builds it - this takes a while
-process = build_and_launch()
+build_and_launch()
 
 account = Account()
 params = {
@@ -131,9 +146,6 @@ params = {
 account.login(**params)
 
 print(account.info["public_key"])
-
-# Stop the backend when you are done
-process.terminate()
 ```
 
 Build a specific ref into a folder of your choosing:
@@ -155,6 +167,8 @@ from status_sdk import build_and_launch, Account
 build_and_launch(address="localhost:9500", wait_seconds=60)
 account = Account(backend_port=9500)
 ```
+
+A backend left over from an earlier run is **reused rather than replaced**: the next call sees `/health` already answering, logs `status-backend is already running on <address>. Skipping launch.` and returns without building anything. That is convenient during development, but it also means you can be talking to an older build than the `commit` you just asked for - stop the old process first when the build matters.
 
 ### `download_build_and_launch(launcher=None, repo_name="status-im/status-go", tag=None, token=None, address="localhost:8080", wait_seconds=30)`
 

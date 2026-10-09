@@ -18,7 +18,7 @@ As of now `Community` works with already created Status App communities. To get 
 - **By invite URL** - pass a shared community `url`. 
 
 
-If the account is already a member, the community is ready to use. Otherwise a **join request is sent** and the instance is left unusable until an administrator accepts it (see [Joining a community](./community.md#joining-a-community)).
+If the account is already a member, the community is ready to use. Otherwise a **join request is sent** and the instance is left unusable until an administrator accepts it.
 
 Only members can read a community's state, and only privileged members (owner / admin / token master) can [ban](./community.md#banpublic_keys-delete_messagesfalse), [accept](./community.md#acceptpending_request_id) or manage channels.
 
@@ -55,7 +55,7 @@ Create a `Community` instance bound to a **logged-in** [`Account`](./account.md)
 |-----|-----|-----|-------------|
 | `account` | `Account` | Yes | A **logged-in** [`Account`](./account.md). If the account is not logged in, a custom exception is raised. |
 | `community_id` | `str` | No* | The id of a community the account is **already a member of**. Community ids can be obtained from [`communities`](./account.md#communities) on `Account`. |
-| `url` | `str` | No* | A shared community invite URL. Used to join the community if the account is not already a member. See [Joining a community](./community.md#joining-a-community). |
+| `url` | `str` | No* | A shared community invite URL. Used to join the community if the account is not already a member. See [Membership](./community.md#membership). |
 | `data_folder` | `str` | No | The folder on **your machine** that [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) mounts into Status Backend. That is the only place the account data written by Status Backend lives, so a different folder cannot be reached. The path is resolved to its `data` subfolder, so `"status-backend-data"` and `"status-backend-data/data"` are equivalent. This property is only needed when the **same account is logged into Status App**, created a community there, and you want [`status-im/status-go`](https://github.com/status-im/status-go) (Status Backend) to take over as its [control node](./community.md#control-node) - it is where [`upload_control_node`](./community.md#upload_control_nodefolder) writes the uploaded account data. Leave it unset for every other use. |
 
 
@@ -534,24 +534,20 @@ community.delete_channel("announcements")
 
 Listen for join requests to the community **in real time**.
 
-Returns a `Generator` that yields one `models.CommunityRequest` **dataclass** per request event, so the fields are reached as attributes (`request.state`) rather than dictionary keys:
+Returns a `Generator` that yields one `models.CommunityRequest` **dataclass** per request event, so the fields are reached as attributes (`request.pending`) rather than dictionary keys:
 
 | Attribute | Type | Description |
 |----|----|-------------|
 | `id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
-| `state` | `str` | The state the request moved into - see the table below. |
 | `public_key` | `str` | Public key of the requesting member. |
+| `pending` | `bool` | The request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id). |
+| `reject` | `bool` | The request was declined. |
+| `accept` | `bool` | The request was accepted and the member joined. |
+| `cancel` | `bool` | The request was cancelled. |
 
-**Request states**
+The state is carried by **four booleans** rather than one string, and **exactly one of them is `True`** on any yielded request - the one matching the state the request just moved into. The rest stay `False`.
 
-| Code | State | Description |
-|-----|-----|-------------|
-| `1` | `pending` | The request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id). |
-| `2` | `reject` | The request was declined. |
-| `3` | `accept` | The request was accepted and the member joined. |
-| `4` | `cancel` | The request was cancelled. |
-
-Events belonging to **other communities**, and requests whose state is not one of the four above, are skipped - so everything yielded is a request for this community.
+Events belonging to **other communities**, and requests whose state code is not one of the four above, are skipped - so everything yielded is a request for this community.
 
 ```python
 from status_sdk import Account, Community
@@ -568,9 +564,9 @@ community = Community(account, url=url)
 
 # Auto-accept everyone who asks to join
 for request in community.listen_requests():
-    print(f"{request.public_key}\t{request.state}")
+    print(f"{request.public_key}\tpending={request.pending}")
 
-    if request.state != "pending":
+    if not request.pending:
         continue
 
     community.accept(request.id)
@@ -1309,7 +1305,7 @@ Relay a message that came from **another messaging platform** - Discord, Telegra
 | `reply_to_message_id` | `str` | No | The **other platform's** id of the message being replied to - *not* a Status message id, unlike in [`send_message`](./community.md#send_messagemessage-reply_to_message_idnone) and [`send_image`](./community.md#send_imagefile_paths-messagenone-reply_to_message_idnone). It threads correctly only when the message it points at was itself relayed with that same value as its `message_id`. |
 | `image_url` | `str` | No | URL of the author's avatar on the other platform. Defaults to no avatar. |
 
-Returns `str` - the `id` of the message **in Status App**, delegated from [`send_bridged_message`](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) on `Account`. This is a different value from the `message_id` you passed in, and it can be used with [`delete_message`](./community.md#delete_messageid) like any other sent message. Returns `None` when [`can_post`](./community.md#can_post) is `False` - nothing is relayed and no error is raised.
+Returns `str` - the `id` of the message **in Status App**, delegated from [`send_bridged_message`](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone) on `Account`. This is a different value from the `message_id` you passed in, and it can be used with [`delete_message`](./community.md#delete_messageid) like any other sent message. When the account is not allowed to post in the channel, a custom exception is raised carrying the backend's message - the call is **not** silently skipped.
 
 ```python
 from status_sdk import Account, Community

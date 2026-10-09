@@ -73,7 +73,7 @@ cp env.example .env
 | `PASSWORD` | The password of the greeting Status account. |
 | `NAME` | The [display name](../../docs/account.md#display-name) or ENS name of the account. If you have previously logged in with the SDK you can provide an ENS. For first time log ins, it is best to provide a [display name](../../docs/account.md#display-name). |
 | `MNEMONIC` | The [recovery phrase](https://status.app/help/profile/understand-your-status-keys-and-recovery-phrase) of the account. Used to recover it into the container. |
-| `COMMUNITY_URL` | The invite [`url`](../../docs/community.md#url) of the community to greet in. If the account is not a member yet, constructing the [`Community`](../../docs/community.md#communityaccount-community_idnone-urlnone) sends a join request instead - see [Membership](../../docs/community.md#membership). |
+| `COMMUNITY_URL` | The invite [`url`](../../docs/community.md#url) of the community to greet in. If the account is not a member yet, constructing the [`Community`](../../docs/community.md#communityaccount-community_idnone-urlnone-data_foldernone) sends a join request instead - see [Membership](../../docs/community.md#membership). |
 | `MODEL_NAME` | The Ollama model used for the greeting, e.g. `llama3.2`. |
 
 ### 4. Run

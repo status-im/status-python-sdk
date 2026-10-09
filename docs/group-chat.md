@@ -411,7 +411,7 @@ for message in messages:
     print(f"{message['timestamp']}\t{message['text']}")
 ```
 
-**Note**: This is the group chat equivalent of [`delete_message`](./account.md#delete_messagemessage_id) on `Account`. The only difference is that it first verifies the group chat exists - a custom exception is raised if the chat has not been created or joined.
+**Note**: This is the group chat equivalent of [`delete_message`](./account.md#delete_messageid) on `Account`. The only difference is that it first verifies the group chat exists - a custom exception is raised if the chat has not been created or joined.
 
 ### `add(public_keys)`
 

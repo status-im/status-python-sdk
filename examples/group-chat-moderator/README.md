@@ -88,7 +88,7 @@ cd examples/group-chat-moderator
 python main.py
 ```
 
-On the first run, [`launch_docker_container`](../../docs/utils.md#launch_docker_container) builds the Status Backend image, which takes a few minutes. Tthe bot starts listening:
+On the first run, [`launch_docker_container`](../../docs/utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) builds the Status Backend image, which takes a few minutes. Tthe bot starts listening:
 
 ```
 [INFO]  Successfully logged in!

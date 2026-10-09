@@ -34,7 +34,7 @@ Each tool is a thin wrapper around the [Python SDK](../../README.md). They are d
 | `get_balance` | [`balance`](../../docs/account.md#balance) | Read the account's wallet balance, optionally enriched with market data. |
 | `get_account_info` | [`info`](../../docs/account.md#info) | Read public account details. `password` and `mnemonic` are **excluded**. |
 | `get_account_contacts` | [`contacts`](../../docs/account.md#contacts) | List contacts, contact requests and group chats. |
-| `manage_contact` | [`add_contact`](../../docs/account.md#add_contactpublic_key-display_namenone) / `remove_contact` | Accept, send, decline and remove contact requests. |
+| `manage_contact` | [`add_contact`](../../docs/account.md#add_contactpublic_key-request_idnone-display_namenone) / `remove_contact` | Accept, send, decline and remove contact requests. |
 | `get_token_info` | [`get_tokens`](../../docs/account.md#get_tokens) | Look up chains, token symbols and token addresses. |
 | `search_external_balance` | [`get_balance`](../../docs/account.md#get_balancetoken_addresses-chain_ids1-walletsnone-ccynone) | Read the balance of **any** wallet address, not just the account's. |
 | `search_messages` | [`get_messages`](../../docs/account.md#get_messageschat_id-start_timestampnone-end_timestampnone) | Read chat history for a date range, including payment requests. |
@@ -92,7 +92,7 @@ cd examples/agents
 python main.py
 ```
 
-On the first run, [`launch_docker_container`](../../docs/utils.md#launch_docker_container) builds the Status Backend image, which takes a few minutes. The account is then recovered from `MNEMONIC` and the bot starts listening:
+On the first run, [`launch_docker_container`](../../docs/utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) builds the Status Backend image, which takes a few minutes. The account is then recovered from `MNEMONIC` and the bot starts listening:
 
 ```
 [INFO]  Running Docker on <your-os-here>

@@ -6,7 +6,7 @@ The account class allows you to easily work with a Status account.
 
 ## Display name
 
-The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
+The **display name** is the human‑readable identifier for a Status account. It is used when creating an account, resolving an existing account during [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), and when updating the account name through the [`display_name`](./account.md#display_name) property.
 
 Display names must follow strict validation rules enforced by the library and expected by the Status application. A valid display name must satisfy all of the following conditions:
 
@@ -50,7 +50,7 @@ Backup files (`.bkp`) can be both created in [Status App](https://our.status.im/
 
 [Status Backend](https://github.com/status-im/status-go) backup folder is exposed in a Docker volume so users can:
 
-- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone).
+- **Upload backup** - by dropping `.bkp` files in the `backups` folder locally (linked to Status Backend Docker container). Backups are automatically uploaded if a [`mnemonic` is provided during `login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone).
 - **Create backup** - by using [`backup()`](./account.md#backup) or creating one in [Status App](https://our.status.im/status-desktop-v2-35-local-backups-new-home-page-performance-boosts-and-more/).
 
 **Note**: Status App will not automatically backup messages. This has to be manually overridden on the app (above screenshot). When using the Python SDK, the messages are automatically stored in the `.bkp` files.
@@ -120,7 +120,7 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `domain` | `str` | No | Domain where Status Backend is reachable. Defaults to `localhost` when running through [`launch_docker_container`](./utils.md#launch_docker_container) on the same machine. **Use the container name when the SDK runs inside the same Docker network as Status Backend.** |
+| `domain` | `str` | No | Domain where Status Backend is reachable. Defaults to `localhost` when running through [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone) on the same machine. **Use the container name when the SDK runs inside the same Docker network as Status Backend.** |
 | `backend_port` | `int` | No | Port exposed by Status Backend. Defaults to `8080`. If this is changed, the published port for `backend_port` must be updated to match in `docker-compose.yaml` as well. |
 | `media_port` | `int` | No | Port exposed by the Status media server, used to fetch localhost images such as the [profile picture](./account.md#profile_picture). Defaults to `9000`. If this is changed, the published port for `media_port` must be updated to match in `docker-compose.yaml` as well. |
 | `is_secure` | `bool` | No | When `True`, the SDK communicates over `https`; otherwise `http` is used. Defaults to `False`. |
@@ -128,7 +128,7 @@ Create a new `Account` instance ready to be logged in. The constructor wires the
 | `volume_folder` | `str` | No | Directory containing the `docker-compose.yaml` whose `backups/` and `assets/` folders are mounted into the Status Backend container. Defaults to this package's own installation folder (e.g. the `status_sdk` folder under `site-packages` when installed via `pip`). Set this when Status Backend is launched from a different `docker-compose.yaml`, such as a local clone of the repository. |
 | `show_logs` | `bool` | No | Whether `status-go` logs are shown in Docker / Terminal. Defaults to `True`. |
 
-The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
+The constructor does not log into any account on its own - call [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) afterwards. To discover what accounts already exist in the configured data directory, use the [`available_accounts`](./account.md#available_accounts) property, which is also populated automatically during initialization.
 
 ```python
 from status_sdk import Account
@@ -156,7 +156,7 @@ account = Account(
 )
 ```
 
-Run against a local clone of the repository instead of with [`launch_docker_container`](./utils.md#launch_docker_container):
+Run against a local clone of the repository instead of with [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone):
 
 ```python
 from status_sdk import Account
@@ -164,7 +164,7 @@ from status_sdk import Account
 account = Account(volume_folder="/path/to/status-python-sdk/status_sdk")
 ```
 
-**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_container). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) will fail.
+**Note**: Status Backend must be running before initializing `Account`. You can launch the backend container with [`launch_docker_container`](./utils.md#launch_docker_containercommitnone-wait_seconds5-platformlinuxamd64-data_foldernone). If the backend is not reachable on `domain:port`, calls to [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) will fail.
 
 **Note**: When `backup_folder` is set, [`backup`](./account.md#backup) moves the generated `.bkp` file out of the SDK's internal `backups/` folder into the provided path, and recovery via `mnemonic` will look in this same folder for `.bkp` files to auto-load. Make sure the folder exists and is writable.
 
@@ -172,7 +172,7 @@ account = Account(volume_folder="/path/to/status-python-sdk/status_sdk")
 
 ## Methods
 
-### `login(password, key_uid=None, display_name=None, mnemonic=None, infura_token=None, alchemy_token=None, coingecko_api_key=None)`
+### `login(password, key_uid=None, name=None, mnemonic=None, infura_token=None, alchemy_token=None, coingecko_api_key=None)`
 
 Login to an existing Status account. If the account does not exist in the initialized data directory, a new account will be created and automatically logged in. 
 
@@ -356,7 +356,7 @@ account.login(**params)
 account.sync("6a2f9c1e-...", "raspberry-pi")
 ```
 
-**Note**: [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) **deletes** every installation that is not enabled. A device that was never synced, or that was [unsynced](./account.md#unsyncinstallation_id), is therefore removed on the next login and has to be re-registered by logging in from that device again.
+**Note**: [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) **deletes** every installation that is not enabled. A device that was never synced, or that was [unsynced](./account.md#unsyncinstallation_id), is therefore removed on the next login and has to be re-registered by logging in from that device again.
 
 ### `unsync(installation_id)`
 
@@ -381,7 +381,7 @@ account.login(**params)
 account.unsync("6a2f9c1e-...")
 ```
 
-**Note**: unsyncing only **disables** the installation, so it can be paired again with [`sync`](./account.md#syncinstallation_id-namenone) within the same session. It does not survive a restart though - the next [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) deletes disabled installations, and the other device has to log in again before it can be synced.
+**Note**: unsyncing only **disables** the installation, so it can be paired again with [`sync`](./account.md#syncinstallation_id-namenone) within the same session. It does not survive a restart though - the next [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) deletes disabled installations, and the other device has to log in again before it can be synced.
 
 ### Chat
 
@@ -726,7 +726,7 @@ print(f"Deleted: {deleted}")
 
 #### `listen_messages()`
 
-Listen for new incoming messages **in real time**. This method yields raw message events as they are received from the Status Backend [signal](./account.md#signallisten) `messages.new`. This method is ideal for developing real time chat applications
+Listen for new incoming messages **in real time**. This method yields raw message events as they are received from the Status Backend [signal](./account.md#signal) `messages.new`. This method is ideal for developing real time chat applications
 
 ```python
 from status_sdk import Account
@@ -750,7 +750,7 @@ Listen for contact requests **in real time**. . Every yielded event carries a `r
 
 | `request_type` | Meaning |
 |-----|-----|
-| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-display_namenone). Use `id` and `public_key` properties from `ContactRequest` |
+| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). Use `id` and `public_key` properties from `ContactRequest` |
 | `accepted` | Another user accepted a contact request that the account had sent. The contact is now mutual. |
 | `removed` | When a user has removed the account from their contacts. |
 
@@ -904,7 +904,7 @@ Modes:
 - **Remove** - `has_added_us` is `True` and `added` is `True`
 - **Reject mode** - `has_added_us` is `True`
 
-Just like [`add_contact`](./account.md#add_contactpublic_key-display_namenone), the contact can be identified in three different ways:
+Just like [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone), the contact can be identified in three different ways:
 
 | Format | Example | Key in [`contacts`](./account.md#contacts) |
 |-------|--------|-----------------|
@@ -947,7 +947,7 @@ print(f"Removed: {removed}")
 
 Block a user, the same as **Block user** in Status App. Once blocked, the Status Backend stops surfacing that user's messages and contact requests to the account.
 
-Just like [`add_contact`](./account.md#add_contactpublic_key-display_namenone), the contact can be identified in three different ways:
+Just like [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone), the contact can be identified in three different ways:
 
 | Format | Example | Key in [`contacts`](./account.md#contacts) |
 |-------|--------|-----------------|
@@ -1265,7 +1265,7 @@ Returns `pd.DataFrame`.
 
 #### `get_transactions(refresh=False)`
 
-Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
+Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
@@ -1429,7 +1429,7 @@ tx_hash = account.send_transaction(
 )
 ```
 
-**Note**: This is a wallet method, so it requires `infura_token`, `alchemy_token` and `coingecko_api_key` to all be provided in [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone). If any is missing, a `WalletNotConfiguredError` is raised when this method is called.
+**Note**: This is a wallet method, so it requires `infura_token`, `alchemy_token` and `coingecko_api_key` to all be provided in [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone). If any is missing, a `WalletNotConfiguredError` is raised when this method is called.
 
 **Note**: The sender and receiver must be on the **same chain**. Cross-chain transfers are not supported by this method - set `chain_id` to the chain where the funds currently exist.
 
@@ -1546,7 +1546,7 @@ Returns `list[dict]`, one entry per locally available account.
 |----|----|-------------|
 | `name` | `str` | The account's name. For accounts using an [ENS](https://status.app/help/profile/transfer-your-ens-name-to-status) name, this is the ENS name (e.g. `malte.stateofus.eth`). For accounts that do not have an ENS name, this will be their display name. |
 | `is_ens` | `bool` | `True` when `display_name` is an ENS name (ends with `.eth`), otherwise `False`. Useful for telling apart plain display names from universal usernames. |
-| `key_uid` | `str` | Internal Status key identifier for the account. Can be passed to [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) as `key_uid`. |
+| `key_uid` | `str` | Internal Status key identifier for the account. Can be passed to [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) as `key_uid`. |
 | `created_at` | `datetime.datetime` | Timestamp when the account was created locally. |
 
 ```python
@@ -1730,7 +1730,7 @@ When a new profile picture is set, any previous image in the **assets** folder i
 
 Get or update the **presence status** of the currently logged‑in account. This is the same presence indicator shown next to the account in Status App, and it controls how the account appears to other users.
 
-Returns `str` when reading the property - one of the options below. After a successful [`login`](./account.md#loginpassword-key_uidnone-display_namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), the status is automatically set to `on`.
+Returns `str` when reading the property - one of the options below. After a successful [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone), the status is automatically set to `on`.
 
 The value is **case‑insensitive** and must be one of the following options:
 
@@ -1811,26 +1811,31 @@ account.signal.disconnect()
 
 ### `logger`
 
-Provides access to the internal **Python logger** for monitoring the lifecycle of the account and backend operations such as login, account creation, messenger startup, and recovery.
+Provides access to the **Python logger** used for the lifecycle of the account and backend operations such as login, account creation, messenger startup, and recovery.
 
-Returns `logging.Logger`.
+Returns `logging.Logger` - a standard logger obtained with `logging.getLogger(__name__)`.
 
-Default logger configuration:
-
-- **Name**: `status-bot`
-- **Level**: `INFO`
-- **Output**: standard output (terminal)
-
-Example:
+**The SDK attaches no handler and sets no level.** That is the usual contract for a library: logging is configured by the application, not by the package it imports. The practical consequence is that **nothing is printed until you configure logging yourself** - `info` messages are dropped entirely, and `warning` and above fall through to Python's handler of last resort, which prints the bare message with no timestamp or level. The quickest way is `basicConfig`, which configures the root logger and therefore every library in the process:
 
 ```python
+import logging
 from status_sdk import Account
 
-account = Account()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 
-print("Starting Status bot")
-account.logger.warning("This is a warning")
-account.logger.error("Something went wrong")
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+```
+
+```
+2026-10-09 13:39:48 [INFO] status_sdk.account: Successfully logged in!
 ```
 
 ### `status_go_commit_sha`
