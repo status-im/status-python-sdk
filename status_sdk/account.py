@@ -9,7 +9,7 @@ from io import BytesIO
 from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
-from . import constants, models
+from . import constants, models, types
 from .signal import Signal
 
 class Account:
@@ -967,17 +967,16 @@ class Account:
             if mention_everyone in current_text or account_mention in current_text:
                 yield models.Message.from_raw(event["body"]["message"])
 
-    def listen_messages(self) -> Generator[models.Message, None, None]:
+    def listen_messages(self, content: Optional[Union[list[types.Content], types.Content]] = None) -> Generator[models.Message, None, None]:
         """
-        Listen for new **RAW** messages continuously. Can be used for real time processing.
+        Listen for new messages continuously. Can be used for real time processing.
         """
-        ALLOWED_CONTENT_TYPES = [
-            1,  # Text
-            2,  # Sticker
-            4,  # Emojis
-            7,  # Image
-            18, # Bridged Message
-        ]
+        if isinstance(content, type(None)):
+            content = []
+        elif isinstance(content, types.Content):
+            content = [content]
+
+        allowed_content_types = [content_type.value for content_type in (content if content else types.Content)]
         albums: dict[str, list[dict]] = {}
         processed: list[str] = []
         SIZE = 100
@@ -985,7 +984,7 @@ class Account:
             event: dict = message.get("event", {})
             raw_messages: list[dict] = event.get("messages", [])
             for raw in raw_messages:
-                if raw["contentType"] not in ALLOWED_CONTENT_TYPES or raw["id"] in processed:
+                if raw["contentType"] not in allowed_content_types or raw["id"] in processed:
                     continue
 
                 if not raw.get("albumId"):
