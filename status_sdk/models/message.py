@@ -76,6 +76,7 @@ class Message:
     timestamp: datetime.datetime
     chat_type: str
     source: str
+    image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
@@ -89,7 +90,8 @@ class Message:
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
-            "source": raw.get("bridgeMessage", {}).get("bridgeName", "status")
+            "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
+            "image_urls": []
         }
 
         if len(raw["responseTo"]) > 0:
@@ -111,6 +113,7 @@ class Message:
         # Sticker
         elif content_type == 2:
             params["content"] = raw["sticker"]["url"]
+            params["image_urls"] += [params["content"]]
             params["content_type"] = "sticker"
         # Image
         elif content_type == 7:
@@ -118,6 +121,7 @@ class Message:
                 raw["image"] = [raw["image"]]
 
             img_paths: list[str] = raw["image"]
+            params["image_urls"] += img_paths
             text = raw["text"]
             caption = f"{text}\n\n" if len(text) > 0 else ""
             params["content"] = caption + "\n".join(img_paths)
