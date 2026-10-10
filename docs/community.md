@@ -532,20 +532,9 @@ community.delete_channel("announcements")
 
 ### `listen_requests()`
 
-Listen for join requests to the community **in real time**.
+Listen for join requests to the community **in real time**. This method yields [`CommunityRequest`](./models.md#communityrequest) objects, so the fields are reached as attributes (`request.pending`) rather than dictionary keys.
 
-Returns a `Generator` that yields one `models.CommunityRequest` **dataclass** per request event, so the fields are reached as attributes (`request.pending`) rather than dictionary keys:
-
-| Attribute | Type | Description |
-|----|----|-------------|
-| `id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
-| `public_key` | `str` | Public key of the requesting member. |
-| `pending` | `bool` | The request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id). |
-| `reject` | `bool` | The request was declined. |
-| `accept` | `bool` | The request was accepted and the member joined. |
-| `cancel` | `bool` | The request was cancelled. |
-
-The state is carried by **four booleans** rather than one string, and **exactly one of them is `True`** on any yielded request - the one matching the state the request just moved into. The rest stay `False`.
+The state is carried by **four booleans** rather than one string, and **exactly one of them is `True`** on any yielded request - the one matching the state the request just moved into. The rest stay `False`. See [`CommunityRequest`](./models.md#communityrequest) for the full list of attributes.
 
 Events belonging to **other communities**, and requests whose state code is not one of the four above, are skipped - so everything yielded is a request for this community.
 
@@ -1186,7 +1175,7 @@ Permissions are [added](./community.md#add_permissionpermission-tokensnone), [li
 The `permission` argument is a **case-insensitive** string. Any other value raises a custom exception listing the valid ones.
 
 | Scope | Description |
-|-----|-----|-------------|
+|-----|-------------|
 | `view` | Members who meet the criteria can **read** the channel. |
 | `view_post` | Members who meet the criteria can **read and post** in the channel. |
 | `admin` | Members who meet the criteria become **administrators**. |
@@ -1198,14 +1187,7 @@ The `permission` argument is a **case-insensitive** string. Any other value rais
 
 ### Token criteria
 
-Token criteria are described with the `models.TokenPermission` **dataclass**:
-
-| Attribute | Type | Required | Description |
-|----|----|----|-------------|
-| `symbol` | `str` | Yes | The token symbol, as it appears in [`get_tokens`](./account.md#get_tokens) on `Account`. |
-| `amount` | `float` | Yes | The minimum amount a member must hold. Converted to wei using the token's own `decimals`, so it is written in human units - `10` means 10 tokens, not 10 wei. |
-| `chain_id` | `int` | No | The chain the token lives on. Defaults to `1` (Ethereum mainnet). |
-| `address` | `str` | No | The token's contract address. Needed only when the same `symbol` exists more than once on `chain_id`. |
+Token criteria are described with the [`TokenPermission`](./models.md#tokenpermission) dataclass.
 
 Passing several `TokenPermission` objects requires a member to satisfy **all** of them.
 
@@ -1440,7 +1422,7 @@ Add a permission to the channel. See [Channel permissions](./community.md#channe
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `permission` | `str` | Yes | The [scope](./community.md#permission-scopes) to grant - `view`, `view_post`, `admin`, `member`, `token_master` or `token_owner`. Case-insensitive. |
-| `tokens` | `models.TokenPermission`<br>`list[models.TokenPermission]` | No | The [token criteria](./community.md#token-criteria) a member must meet. A single object or a list of them. When omitted, the permission applies to **every** member. |
+| `tokens` | [`models.TokenPermission`](./models.md#tokenpermission)<br>`list[models.TokenPermission]` | No | The [token criteria](./community.md#token-criteria) a member must meet. A single object or a list of them. When omitted, the permission applies to **every** member. |
 
 ```python
 from status_sdk import Account, Community, models

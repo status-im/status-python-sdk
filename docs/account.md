@@ -395,7 +395,7 @@ A message can be **at most 2000 characters long**, matching the limit enforced b
 |-----|-----|-----|-------------|
 | `chat_id` | `str` | Yes | Identifier of the chat where the message will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
 | `message` | `str` | Yes | The text message to send. Cannot be longer than **2000 characters**. |
-| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the message is sent as a standalone message. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messagescontentnone) event. When omitted (default), the message is sent as a standalone message. |
 
 Returns `str` - the `id` of the message that was just sent. It is the same identifier that appears under the `id` key in [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message, without having to fetch the chat's messages first.
 
@@ -449,9 +449,9 @@ Send one or more images to a specific chat, with an optional text message. Image
 | `chat_id` | `str` | Yes | Identifier of the chat where the image will be sent. All available chat IDs can be obtained from the [`chats`](./account.md#chats) property. |
 | `file_paths` | `list[str]`<br>`str` | Yes | Local full path(s) to the image file(s). A single value can be passed as a `str`. Passing more than one path sends all of them together as a single **album**. |
 | `message` | `str` | No | Caption sent together with the image(s). Cannot be longer than **2000 characters**. When omitted (default), the image is sent without any text. |
-| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messages) event. When omitted (default), the image is sent as a standalone message. |
+| `reply_to_message_id` | `str` | No | The `id` of the message being replied to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) or from a [`listen_messages`](./account.md#listen_messagescontentnone) event. When omitted (default), the image is sent as a standalone message. |
 
-Returns `str` - the `id` of the message that was just sent, exactly as [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) does, so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message. For an album, this is the id of its last image - [`listen_messages`](./account.md#listen_messages) yields the whole album under this same id once every image in it has arrived, but [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) returns each image in the album as its own entry rather than merging them.
+Returns `str` - the `id` of the message that was just sent, exactly as [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) does, so it can be passed straight into [`delete_message`](./account.md#delete_messageid) or used as the `reply_to_message_id` of a follow-up message. For an album, this is the id of its last image - [`listen_messages`](./account.md#listen_messagescontentnone) yields the whole album under this same id once every image in it has arrived, but [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone) returns each image in the album as its own entry rather than merging them.
 
 ```python
 from status_sdk import Account
@@ -606,11 +606,11 @@ React to a message with an emoji, the same as reacting to a message in Status Ap
 
 Emojis are identified by their **shortname**, exactly as Status App names them (`:thumbsup:`, `:heart_eyes:`). The surrounding colons are optional - `thumbsup` and `:thumbsup:` are the same emoji - and the full list of supported shortnames is documented under [Emojis](./utils.md#emojis).
 
-Passing `chat_id` is purely an **optimisation**. Without it the chat has to be resolved from the message first, which costs one extra round trip to the Status Backend per reaction - worth avoiding when reacting to many messages in a chat that is already known, such as inside a [`listen_messages`](./account.md#listen_messages) loop. A `chat_id` that does not match the message is rejected by the backend and raises a custom exception, so pass it only when it is certain.
+Passing `chat_id` is purely an **optimisation**. Without it the chat has to be resolved from the message first, which costs one extra round trip to the Status Backend per reaction - worth avoiding when reacting to many messages in a chat that is already known, such as inside a [`listen_messages`](./account.md#listen_messagescontentnone) loop. A `chat_id` that does not match the message is rejected by the backend and raises a custom exception, so pass it only when it is certain.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), from the `lastMessage` of a [`listen_messages`](./account.md#listen_messages) event, or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) / [`send_image`](./account.md#send_imagechat_id-file_paths-messagenone-reply_to_message_idnone). |
+| `message_id` | `str` | Yes | The `id` of the message to react to. Message IDs can be obtained from the `id` key of [`get_messages`](./account.md#get_messageschat_id-start_timestampnone-end_timestampnone), from the `lastMessage` of a [`listen_messages`](./account.md#listen_messagescontentnone) event, or directly from the return value of [`send_message`](./account.md#send_messagechat_id-message-reply_to_message_idnone) / [`send_image`](./account.md#send_imagechat_id-file_paths-messagenone-reply_to_message_idnone). |
 | `emoji_shortname` | `str` | Yes | The emoji shortname as in Status App, with or without the surrounding colons. See [Emojis](./utils.md#emojis) for all supported values. |
 | `chat_id` | `str` | No | Identifier of the chat the message belongs to, as found in the [`chats`](./account.md#chats) property. When omitted (default), it is resolved from `message_id` with an extra call to the Status Backend. |
 
@@ -724,9 +724,13 @@ deleted = account.delete_message(message_id)
 print(f"Deleted: {deleted}")
 ```
 
-#### `listen_messages()`
+#### `listen_messages(content=None)`
 
-Listen for new incoming messages **in real time**. This method yields raw message events as they are received from the Status Backend [signal](./account.md#signal) `messages.new`. This method is ideal for developing real time chat applications
+Listen for new incoming messages **in real time**. This method is ideal for developing real time chat applications.
+
+| Name | Type | Required | Description |
+|-----|-----|-----|-------------|
+| `content` | `list[types.Content]`<br>`types.Content` | No | Only yield messages of the given [content type(s)](./types.md#content). |
 
 ```python
 from status_sdk import Account
@@ -739,20 +743,38 @@ params = {
 account.login(**params)
 
 for msg in account.listen_messages():
-    print(msg)
+    print(msg.content)
+```
+
+Only listen for text and emoji messages:
+
+```python
+from status_sdk import Account, types
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for msg in account.listen_messages(content=[types.Content.TEXT, types.Content.EMOJI]):
+    print(msg.content)
 ```
 
 **Note**: If you receive multiple messages at once, `contacts` and `chats` will grow.
 
 #### `listen_contact_requests()`
 
-Listen for contact requests **in real time**. . Every yielded event carries a `request_type` key that tells them apart:
+Listen for contact requests **in real time**. This method yields [`ContactRequest`](./models.md#contactrequest) objects, whose `incoming`, `accepted` and `removed` booleans tell the events apart:
 
-| `request_type` | Meaning |
+| Attribute | Meaning |
 |-----|-----|
-| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). Use `id` and `public_key` properties from `ContactRequest` |
+| `incoming` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). |
 | `accepted` | Another user accepted a contact request that the account had sent. The contact is now mutual. |
 | `removed` | When a user has removed the account from their contacts. |
+
+See [`ContactRequest`](./models.md#contactrequest) for the full list of attributes.
 
 ```python
 from status_sdk import Account
@@ -791,7 +813,7 @@ for request in account.listen_contact_requests():
 
 #### `listen_message_mentions()`
 
-Listen for `@0x...` mentions **in real time**. 
+Listen for `@0x...` mentions **in real time**. This method yields [`Message`](./models.md#message) objects.
 
 ```python
 from status_sdk import Account
@@ -804,7 +826,7 @@ params = {
 account.login(**params)
 
 for mention in account.listen_message_mentions():
-    print(mention)
+    print(mention.content)
 ```
 
 #### `add_contact(public_key, request_id=None, display_name=None)`
@@ -1781,7 +1803,7 @@ The property exists in `Account` because signals require an **active logged‑in
 The property exposes the following methods:
 
 - `signal.get()` - fetch a single event. If the event is not found, you may end up in an infinite loop.
-- `signal.listen()` - stream events continuously. Example usage of this is found in [`listen_messages()`](./account.md#listen_messages)
+- `signal.listen()` - stream events continuously. Example usage of this is found in [`listen_messages()`](./account.md#listen_messagescontentnone)
 - `signal.connect()` - open a persistent websocket connection that buffers **every** incoming signal in the background. Must be called before `expect()`.
 - `signal.disconnect()` - tear down the persistent connection opened by `connect()`.
 - `signal.expect()` - return a context manager that waits for one or more matching signals to arrive **after** you perform an action. This is the recommended way to make **async message calls**, since it removes the race conditions and infinite-loop risk of `get()`.
