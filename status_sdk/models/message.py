@@ -14,6 +14,7 @@ class ContactRequest:
         if not (self.incoming or self.accepted or self.removed):
             raise ValueError(f"A {self.__class__.__name__} must be `incoming`, `accepted` or `removed`")
 
+
 @dataclass
 class PaymentRequest:
     to_address: str
@@ -33,6 +34,7 @@ class PaymentRequest:
             "amount": raw["amount"]
         }
         return cls(**params)
+
 
 @dataclass
 class BridgedContent:
@@ -137,20 +139,3 @@ class Message:
                 for payment in payments
             ]
         return cls(**params)
-
-
-@dataclass
-class CommunityRequest:
-    id: str
-    public_key: str
-    pending: bool = False
-    reject: bool = False
-    accept: bool = False
-    cancel: bool = False
-
-@dataclass
-class TokenPermission:
-    symbol: str
-    amount: float
-    chain_id: int = 1
-    address: Optional[str] = None
