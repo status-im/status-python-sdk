@@ -2,6 +2,16 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-10-10
+
+### Fixed
+
+- Updated outdated documentation
+
+### Changed
+
+- Split `models.py` into separate files
+
 ## [1.2.2] - 2026-10-08
 
 ### Added
@@ -219,6 +229,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.2.3]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.3
 [1.2.2]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.2
 [1.2.1]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.1
 [1.2.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.0
