@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Self, Optional, Union
+from .. import types
 import datetime, uuid
 
 @dataclass
@@ -71,10 +72,10 @@ class Message:
     id: str
     chat_id: str
     content: str
-    content_type: str
+    content_type: types.Content
     from_public_key: str
     timestamp: datetime.datetime
-    chat_type: str
+    chat_type: types.Chat
     source: str
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
@@ -98,25 +99,25 @@ class Message:
             params["reply_id"] = raw["responseTo"]
 
         if msg_type == 5:
-            params["chat_type"] = "community"
+            params["chat_type"] = types.Chat.COMMUNITY
 
         elif msg_type == 1:
-            params["chat_type"] = "private"
+            params["chat_type"] = types.Chat.PRIVATE
 
         elif msg_type in [2, 3]:
-            params["chat_type"] = "group"
+            params["chat_type"] = types.Chat.GROUP
 
         # Text & Emojis
-        if content_type in [1, 4]:
+        if content_type in [types.Content.TEXT.value, types.Content.EMOJI.value]:
             params["content"] = raw["text"]
-            params["content_type"] = "text" if content_type == 1 else "image"
+            params["content_type"] = types.Content.TEXT if content_type == types.Content.TEXT.value else types.Content.EMOJI
         # Sticker
-        elif content_type == 2:
+        elif content_type == types.Content.STICKER.value:
             params["content"] = raw["sticker"]["url"]
             params["image_urls"] += [params["content"]]
-            params["content_type"] = "sticker"
+            params["content_type"] = types.Content.STICKER
         # Image
-        elif content_type == 7:
+        elif content_type == types.Content.IMAGE.value:
             if isinstance(raw["image"], str):
                 raw["image"] = [raw["image"]]
 
@@ -125,11 +126,11 @@ class Message:
             text = raw["text"]
             caption = f"{text}\n\n" if len(text) > 0 else ""
             params["content"] = caption + "\n".join(img_paths)
-            params["content_type"] = "image"
+            params["content_type"] = types.Content.IMAGE
         # Bridged Message
-        elif content_type == 18:
+        elif content_type == types.Content.BRIDGED.value:
             params["content"] = raw["bridgeMessage"]["content"]
-            params["content_type"] = "text"
+            params["content_type"] = types.Content.BRIDGED
             params["bridge_id"] = raw["bridgeMessage"]["messageID"]
             reply_id = raw["bridgeMessage"].get("parentMessageID")
             if isinstance(reply_id, str) and len(reply_id) == 0:
