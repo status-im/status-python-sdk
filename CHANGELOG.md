@@ -2,6 +2,19 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-11
+
+### Added
+
+- Enums for Message Content Type (`Content`) and Chat Types (`Chat`)
+
+### Changed
+
+- `listen_messages` can listen for specific `Content` type.
+- `Message` model 
+    - Property `content_type` and `chat_type` will return `Content` and `Chat` types instead of `str`.
+    - Store content URLs in `list[str]` property `image_urls`
+
 ## [1.2.3] - 2026-10-10
 
 ### Fixed
@@ -229,6 +242,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.3.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.3.0
 [1.2.3]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.3
 [1.2.2]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.2
 [1.2.1]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.1
