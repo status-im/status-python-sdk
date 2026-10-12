@@ -92,7 +92,9 @@ class Message:
             "from_public_key": raw["from"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
-            "image_urls": []
+            "image_urls": [],
+            "content_type": raw["contentType"],
+            "content": raw["text"]
         }
 
         if len(raw["responseTo"]) > 0:
