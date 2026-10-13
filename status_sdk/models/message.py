@@ -128,9 +128,6 @@ class Message:
 
             img_paths: list[str] = raw["image"]
             params["image_urls"] += img_paths
-            text = raw["text"]
-            caption = f"{text}\n\n" if len(text) > 0 else ""
-            params["content"] = caption + "\n".join(img_paths)
             params["content_type"] = types.Content.IMAGE
         # Bridged Message
         elif content_type == types.Content.BRIDGED.value:

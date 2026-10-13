@@ -13,6 +13,10 @@ All notable changes to `status-python-sdk` will be documented in this file. The 
 
 - `listen_messages` don't take any arguement and return all message of type `TEXT`, `STICKER`, `EMOJI`, `IMAGE`, `BRIDGED`
 
+### Fixed
+
+- Remove `image_path` from `content` of `Message` object
+
 ## [1.3.0] - 2026-10-11
 
 ### Added
