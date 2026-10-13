@@ -6,7 +6,6 @@ class Content(Enum):
     STATUS = 3
     EMOJI = 4
     IMAGE = 7
-    AUDIO = 8
     CONTACT_REQUEST = 11
     ACCEPTED_REQUEST = 16
     REMOVED_CONTACT = 17

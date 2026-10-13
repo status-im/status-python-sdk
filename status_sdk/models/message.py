@@ -80,6 +80,7 @@ class Message:
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
+    edited_at: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
 
     @classmethod
@@ -96,6 +97,8 @@ class Message:
             "content_type": raw["contentType"],
             "content": raw["text"]
         }
+
+        print(f"Transforming raw message {raw}")
 
         if len(raw["responseTo"]) > 0:
             params["reply_id"] = raw["responseTo"]

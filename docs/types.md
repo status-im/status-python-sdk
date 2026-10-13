@@ -23,7 +23,7 @@ params = {
 account.login(**params)
 
 # Only yield text and emoji messages
-for msg in account.listen_messages(content=[types.Content.TEXT, types.Content.EMOJI]):
+for msg in account.listen_events(content=[types.Content.TEXT, types.Content.EMOJI]):
     print(msg.content)
 ```
 
@@ -31,7 +31,7 @@ A single value can be passed instead of a list:
 
 ```python
 # Only yield images (and albums)
-for msg in account.listen_messages(content=types.Content.IMAGE):
+for msg in account.listen_events(content=types.Content.IMAGE):
     print(msg.image_urls)
 ```
 

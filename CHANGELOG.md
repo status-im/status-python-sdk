@@ -2,11 +2,16 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1]
+## [1.4.0] - 2026-10-14
 
 ### Added
 
 - Completed Enum for Content Type
+- Function `listen_events` that listen to all event by default
+
+### Changed
+
+- `listen_messages` don't take any arguement and return all message of type `TEXT`, `STICKER`, `EMOJI`, `IMAGE`, `BRIDGED`
 
 ## [1.3.0] - 2026-10-11
 
@@ -248,6 +253,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.4.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.4.0
 [1.3.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.3.0
 [1.2.3]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.3
 [1.2.2]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.2
