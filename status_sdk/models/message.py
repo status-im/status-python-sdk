@@ -80,6 +80,7 @@ class Message:
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
+    edited_at: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
 
     @classmethod
@@ -92,8 +93,12 @@ class Message:
             "from_public_key": raw["from"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
-            "image_urls": []
+            "image_urls": [],
+            "content_type": raw["contentType"],
+            "content": raw["text"]
         }
+
+        print(f"Transforming raw message {raw}")
 
         if len(raw["responseTo"]) > 0:
             params["reply_id"] = raw["responseTo"]
@@ -123,9 +128,6 @@ class Message:
 
             img_paths: list[str] = raw["image"]
             params["image_urls"] += img_paths
-            text = raw["text"]
-            caption = f"{text}\n\n" if len(text) > 0 else ""
-            params["content"] = caption + "\n".join(img_paths)
             params["content_type"] = types.Content.IMAGE
         # Bridged Message
         elif content_type == types.Content.BRIDGED.value:

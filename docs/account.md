@@ -724,13 +724,13 @@ deleted = account.delete_message(message_id)
 print(f"Deleted: {deleted}")
 ```
 
-#### `listen_messages(content=None)`
+#### `listen_events(content=[])`
 
-Listen for new incoming messages **in real time**. This method is ideal for developing real time chat applications.
+Listen for new events **in real time**, not only the messages. To listen to specifc events only, specify then in the `content` parameters
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `content` | `list[types.Content]`<br>`types.Content` | No | Only yield messages of the given [content type(s)](./types.md#content). |
+| `content` | `list[types.Content]`<br>`types.Content` | No | Only yield event of the given [content type(s)](./types.md#content). |
 
 ```python
 from status_sdk import Account
@@ -746,10 +746,13 @@ for msg in account.listen_messages():
     print(msg.content)
 ```
 
-Only listen for text and emoji messages:
+#### `listen_messages()`
+
+Listen for new incoming messages **in real time**. This method is ideal for developing real time chat applications.
+
 
 ```python
-from status_sdk import Account, types
+from status_sdk import Account
 
 account = Account()
 params = {
@@ -758,11 +761,9 @@ params = {
 }
 account.login(**params)
 
-for msg in account.listen_messages(content=[types.Content.TEXT, types.Content.EMOJI]):
+for msg in account.listen_messages():
     print(msg.content)
 ```
-
-**Note**: If you receive multiple messages at once, `contacts` and `chats` will grow.
 
 #### `listen_contact_requests()`
 

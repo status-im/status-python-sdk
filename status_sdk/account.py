@@ -967,16 +967,17 @@ class Account:
             if mention_everyone in current_text or account_mention in current_text:
                 yield models.Message.from_raw(event["body"]["message"])
 
-    def listen_messages(self, content: Optional[Union[list[types.Content], types.Content]] = None) -> Generator[models.Message, None, None]:
+    def listen_messages(self) -> Generator[models.Message, None, None]:
         """
         Listen for new messages continuously. Can be used for real time processing.
         """
-        if isinstance(content, type(None)):
-            content = []
-        elif isinstance(content, types.Content):
-            content = [content]
-
-        allowed_content_types = [content_type.value for content_type in (content if content else types.Content)]
+        allowed_content_types = [
+            types.Content.TEXT,
+            types.Content.STICKER,
+            types.Content.EMOJI,
+            types.Content.IMAGE,
+            types.Content.BRIDGED
+        ]
         albums: dict[str, list[dict]] = {}
         processed: list[str] = []
         SIZE = 100
@@ -1010,6 +1011,50 @@ class Account:
 
             if len(processed) == SIZE:
                 processed = []
+
+
+
+    def listen_events(self, content: Optional[Union[list[types.Content], types.Content]] = None) -> Generator[models.Message, None, None]:
+        """
+        Listen for all events continuously. Can be used for real time processing.
+        """
+        if isinstance(content, type(None)):
+            content = []
+        elif isinstance(content, types.Content):
+            content = [content]
+
+        allowed_content_types = [content_type.value for content_type in (content if content else types.Content)]
+        albums: dict[str, list[dict]] = {}
+        for message in self.signal.listen("messages.new"):
+            event: dict = message.get("event", {})
+            raw_messages: list[dict] = event.get("messages", [])
+            self.logger.debug(f"Received Message {json.dumps(raw_messages)}")
+            for raw in raw_messages:
+                if raw["contentType"] not in allowed_content_types:
+                    continue
+                # Edge case with when receiving an Edit of a message with a reply
+                if "outgoingStatus" in raw and raw["outgoingStatus"] == "delivered":
+                    continue
+
+                if not raw.get("albumId"):
+                    yield models.Message.from_raw(raw)
+                    continue
+
+                album_id: str = raw["albumId"]
+                if album_id not in albums:
+                    albums[album_id] = []
+
+                albums[album_id].append(raw)
+                if len(albums[album_id]) != raw["albumImagesCount"]:
+                    continue
+
+                raw["image"] = [
+                    point["image"]
+                    for point in albums[album_id]
+                ]
+                yield models.Message.from_raw(raw)
+                albums.pop(album_id)
+
 
     def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """
