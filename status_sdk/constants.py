@@ -1,3 +1,7 @@
+import click
+
+CLI_APP_FOLDER = click.get_app_dir("status-sdk")
+
 ALCHEMY_CHAIN_IDS = {
     "eth-mainnet": 1,
     "polygon-mainnet": 137,
