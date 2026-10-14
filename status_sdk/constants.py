@@ -1,3 +1,7 @@
+import click
+
+CLI_APP_FOLDER = click.get_app_dir("status-sdk")
+
 EMOJI_UNICODES = {
     ":grinning:": "1f600",
     ":smiley:": "1f603",

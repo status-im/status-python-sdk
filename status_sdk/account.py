@@ -578,23 +578,6 @@ class Account:
         return contacts + communities + group_chats
 
     @property
-    def chains(self) -> dict[int, str]:
-        """
-        All available production chains that are
-        used in Status Backend.
-        """
-
-        # NOTE: An internal state can be used because chains
-        # would be consistent for the currently pulled Status Bacckend image
-        if self.__chains:
-            return self.__chains
-
-        result = self._call_rpc("wallets", "getEthereumChains").get("result", [])
-        key = "Prod"
-        self.__chains = {chain[key]["chainId"]: chain[key]["chainName"] for chain in result if chain.get(key)}
-        return self.__chains
-
-    @property
     def wallet(self) -> Wallet:
         """
         Access wallet functionality
@@ -607,38 +590,6 @@ class Account:
 
         self.__wallet  = Wallet(self)
         return self.__wallet
-
-    @property
-    def balance(self) -> pd.DataFrame:
-        """
-        Get the account's balance
-        """
-        empty = pd.DataFrame(columns=["timestamp", "address", "chain_id", "amount", "symbol"])
-
-        params = [[self.info["wallet_address"]], True]
-        results = self._call_rpc("wallets", "fetchOrGetCachedWalletBalances", params).get("result", {}).get(self.info["wallet_address"].lower(), [])
-        if not results:
-            return empty.copy()
-
-        balance = pd.DataFrame(results)
-        column_mapping = {"tokenAddress": "address", "tokenChainId": "chain_id", "balance": "amount", "hasError": "error"}
-        balance = balance.rename(columns=column_mapping)[list(column_mapping.values())]\
-                        .astype({"chain_id": "int8", "amount": "float64"})
-
-        query = (balance["amount"] != 0) & (~balance["error"])
-        if query.sum() == 0:
-            return empty.copy()
-
-        redundant_columns = ["error", "decimals", "cross_chain_id", "source_id"]
-        available_tokens = self.get_tokens()
-        balance = balance.loc[query].merge(available_tokens, "left", ["address", "chain_id"])\
-                                    .drop(redundant_columns, axis=1)\
-                                    .drop_duplicates()\
-                                    .sort_values("chain_id", ascending=True)\
-                                    .reset_index(drop=True)\
-
-        balance.insert(0, "timestamp", datetime.datetime.now())
-        return balance.copy()
 
     @property
     def message_length(self) -> int:

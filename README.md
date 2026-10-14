@@ -22,17 +22,23 @@ graph TB
        end
        Vol1[(Backup)]
        Vol2[(Assets)]
-   end
+    end
 
-
-   subgraph bot[status-im/status-python-sdk]
-        GROUP_CHAT[class GroupChat]
-        COMMUNITY[class Community]
-        CHANNEL[class Channel]
-        ACCOUNT[class Account]
-        WALLET[class Wallet]
-        SAVED_ADDRESS[class SavedAddress]
-        SIGNAL[class Signal]
+    subgraph bot[status-im/status-python-sdk]
+        subgraph cli[CLI]
+            CLI_SETUP[status-cli setup]
+            CLI_LAUNCH[status-cli launch]
+            CLI_WALLET[status-cli wallet]
+        end
+        subgraph python[Python]
+            GROUP_CHAT[class GroupChat]
+            COMMUNITY[class Community]
+            CHANNEL[class Channel]
+            ACCOUNT[class Account]
+            WALLET[class Wallet]
+            SAVED_ADDRESS[class SavedAddress]
+            SIGNAL[class Signal]
+        end
     end
 
     subgraph external[External Services]
@@ -55,6 +61,7 @@ graph TB
     RPC --> |coingecko_api_key| COINGECKO
     RPC --> |infura_token| INFURA
     HTTP --> |alchemy_token| ALCHEMY
+    
 ```
 
 ## Setup
