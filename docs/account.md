@@ -761,7 +761,20 @@ for event, payload in account.listen_events():
         print(f"{payload.public_key} wants to join {payload.community_id}")
 ```
 
-A message is yielded **once**, as either `Event.MESSAGE` or `Event.MENTION` - never both. Handle both kinds when reacting to incoming text, or use [`listen_messages`](./account.md#listen_messagescontentnone), which yields mentions as ordinary messages. Use this over running several listeners at once.
+A message is yielded **once**, as either `Event.MESSAGE` or `Event.MENTION` - never both. Handle both kinds when reacting to incoming text, or use [`listen_messages`](./account.md#listen_messagescontentnone), which yields mentions as ordinary messages.
+
+**Edited messages are yielded again**. An edit is not a separate event - the message comes back under the **same `id`** with its new `content` and an [`edited_timestamp`](./models.md#message) set. Each version is yielded once, so a message edited twice arrives three times in total. Check `edited_timestamp` to tell an edit from a first delivery:
+
+```python
+for event, payload in account.listen_events():
+    if event is not types.Event.MESSAGE:
+        continue
+
+    if payload.edited_timestamp:
+        print(f"{payload.id} was edited at {payload.edited_timestamp}: {payload.content}")
+    else:
+        print(f"new message: {payload.content}")
+```
 
 #### `listen_messages(content=None)`
 
@@ -801,7 +814,16 @@ for msg in account.listen_messages(content=[types.Content.TEXT, types.Content.EM
     print(msg.content)
 ```
 
-**Note**: If you receive multiple messages at once, `contacts` and `chats` will grow.
+
+**Edited messages are yielded again**, under the **same `id`** as the original, with the new `content` and an [`edited_timestamp`](./models.md#message) set. Each version is yielded once, so a message edited twice arrives three times in total. Filter on `edited_timestamp` when only first deliveries matter:
+
+```python
+for msg in account.listen_messages():
+    if msg.edited_timestamp:
+        continue
+
+    print(msg.content)
+```
 
 #### `listen_contact_requests()`
 

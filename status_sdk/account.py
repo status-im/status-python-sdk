@@ -10,6 +10,7 @@ from PIL import Image
 from PIL.JpegImagePlugin import JpegImageFile
 from PIL.PngImagePlugin import PngImageFile
 from . import constants, models, types
+from .utils import misc as utils
 from .signal import Signal
 
 class Account:
@@ -61,7 +62,6 @@ class Account:
         self.__transactions: Optional[pd.DataFrame] = None
 
         self.__logger = logging.getLogger(__name__)
-        self.__timestamp_divisor = 1_000
         self.__kd_iterations = 256000
         self.__is_messenger_launched = False
         # Information for the logged in account
@@ -318,7 +318,7 @@ class Account:
                 "name": account["name"],
                 "is_ens": account["name"].endswith(".eth"),
                 "key_uid": account["key-uid"],
-                "created_at": datetime.datetime.fromtimestamp(account["timestamp"])
+                "created_at": utils.to_datetime(account["timestamp"])
             }
             for account in accounts
         ]
@@ -475,7 +475,7 @@ class Account:
                 "mutual": contact["mutual"],
                 "display_name": contact["displayName"],
                 "bio": contact["bio"],
-                "last_updated": datetime.datetime.fromtimestamp(contact["lastUpdated"] / self.__timestamp_divisor) if contact["lastUpdated"] > 0 else None
+                "last_updated": utils.to_datetime(contact["lastUpdated"])
             }
             for contact in raw
         }
@@ -506,7 +506,6 @@ class Account:
         if not raw:
             return []
 
-        to_datetime = lambda key, mapping: (datetime.datetime.fromtimestamp(mapping[key]) if mapping[key] > 0 else None) if key in mapping else None
         communities = [
             {
                 "id": community["id"],
@@ -515,8 +514,8 @@ class Account:
                 "verified": community["verified"],
                 "tags": community["tags"],
                 "is_member": community["isMember"],
-                "joined_timestamp": to_datetime("joinedAt", community),
-                "requested_timestamp": to_datetime("requestedToJoinAt", community),
+                "joined_timestamp": utils.to_datetime(community.get("joinedAt")),
+                "requested_timestamp": utils.to_datetime(community.get("requestedToJoinAt")),
                 "encrypted": community["encrypted"],
                 "members": len(community["members"]),
                 "channels": [
@@ -948,7 +947,7 @@ class Account:
 
         albums: dict[str, list[dict]] = {}
         processed: list[str] = []
-        SIZE = 100
+        SIZE = 150
         for signal in self.signal.listen(["local-notifications", "messages.new"]):
             event: dict = signal.get("event", {})
 
@@ -956,6 +955,7 @@ class Account:
                 if event.get("category") == "contactRequest":
                     yield types.Event.CONTACT_REQUEST, models.ContactRequest(
                         event["body"]["message"]["id"],
+                        utils.to_datetime(event["body"]["message"]["whisperTimestamp"]),
                         event["body"]["message"]["from"],
                         event,
                         True
@@ -971,6 +971,7 @@ class Account:
 
                 params = {
                     "id": request["id"],
+                    "timestamp": datetime.datetime.now(),
                     "community_id": request["communityId"],
                     "public_key": request["publicKey"],
                     "raw": request,
@@ -987,6 +988,7 @@ class Account:
 
                     params = {
                         "id": raw["id"],
+                        "timestamp": utils.to_datetime(raw["whisperTimestamp"]),
                         "public_key": public_key,
                         "raw": raw,
                         contact_request_mapping[raw["contentType"]]: True
@@ -994,12 +996,15 @@ class Account:
                     yield types.Event.CONTACT_REQUEST, models.ContactRequest(**params)
                     continue
 
-                if raw["contentType"] not in supported_content_types or raw["id"] in processed:
+                # An edit re-sends the message under the same `id` with a new `editedAt`,
+                # so both are needed to tell a fresh edit from a repeated signal
+                message_key = (raw["id"], raw.get("editedAt"))
+                if raw["contentType"] not in supported_content_types or message_key in processed:
                     continue
 
                 if not raw.get("albumId"):
                     yield get_message_event_type(raw), models.Message.from_raw(raw)
-                    processed.append(raw["id"])
+                    processed.append(message_key)
                     continue
 
                 album_id: str = raw["albumId"]
@@ -1015,7 +1020,7 @@ class Account:
                     for point in albums[album_id]
                 ]
                 yield get_message_event_type(raw), models.Message.from_raw(raw)
-                processed.append(raw["id"])
+                processed.append(message_key)
                 albums.pop(album_id)
 
             if len(processed) == SIZE:
@@ -1069,8 +1074,8 @@ class Account:
         Output:
             - All messages within the given range
         """
-        start_timestamp = self.__to_datetime(start_timestamp)
-        end_timestamp = self.__to_datetime(end_timestamp)
+        start_timestamp = self.__to_datetime_messages(start_timestamp)
+        end_timestamp = self.__to_datetime_messages(end_timestamp)
         # NOTE: Order of params matters when making the RCP call
         params = {
             "chat_id": chat_id,
@@ -1097,7 +1102,7 @@ class Account:
 
             for message in messages:
                 point = {
-                    self.__camel_to_snake(key): value if key not in timestamp_keys else datetime.datetime.fromtimestamp(value / self.__timestamp_divisor)
+                    self.__camel_to_snake(key): value if key not in timestamp_keys else utils.to_datetime(value)
                     for key, value in message.items()
                 }
                 if isinstance(point.get("bridge_message"), str):
@@ -1961,7 +1966,7 @@ class Account:
         s2 = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1)
         return s2.lower()
 
-    def __to_datetime(self, timestamp: Union[str, datetime.datetime, datetime.date, pd.Timestamp, None]) -> Optional[datetime.datetime]:
+    def __to_datetime_messages(self, timestamp: Union[str, datetime.datetime, datetime.date, pd.Timestamp, None]) -> Optional[datetime.datetime]:
         """
         Convert a timestamp `str` / `datetime.date` into a `datetime.datetime`.
 

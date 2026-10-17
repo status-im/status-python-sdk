@@ -12,6 +12,7 @@ Returned by [`listen_events`](./account.md#listen_events), [`listen_messages`](.
 | `content_type` | [`types.Content`](./types.md#content) | What kind of content the message carries. |
 | `from_public_key` | `str` | Public key of the sender. |
 | `timestamp` | `datetime.datetime` | When the message was sent. |
+| `edited_timestamp` | `datetime.datetime` | When the message was last edited, or `None` if it has never been edited. An edit arrives as a **new event** under the same `id` with updated `content`, so comparing this against the previous value is how an edit is told apart from a fresh message. |
 | `chat_type` | [`types.Chat`](./types.md#chat) | What kind of chat the message was sent in. |
 | `source` | `str` | `"status"` for a regular message, or the platform name (e.g. `"Discord"`) for a [bridged message](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone). |
 | `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. Use it to reach fields this model does not surface - `mentions`, `albumId`, `clock`, `emojiHash` and so on. |
@@ -68,6 +69,7 @@ Returned by [`listen_events`](./account.md#listen_events) and [`listen_contact_r
 | Attribute | Type | Description |
 |----|----|-------------|
 | `id` | `str` | The contact request id. Pass this as `request_id` to [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone) to approve it. |
+| `timestamp` | `datetime.datetime` | When the request was sent, taken from the message that carried it. |
 | `public_key` | `str` | Public key of the other account. |
 | `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. |
 | `incoming` | `bool` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). |
@@ -102,6 +104,7 @@ Returned by [`listen_requests`](./community.md#listen_requests) from `Community`
 | Attribute | Type | Description |
 |----|----|-------------|
 | `id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
+| `timestamp` | `datetime.datetime` | When the request was received. Unlike the other models, this is the **local** time the event was handled rather than a timestamp from the backend - the join request payload carries none. |
 | `public_key` | `str` | Public key of the requesting member. |
 | `community_id` | `str` | The id of the community the request was sent to. |
 | `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. |

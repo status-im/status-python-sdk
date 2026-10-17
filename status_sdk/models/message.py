@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Self, Optional, Union
 from .. import types
+from ..utils import misc as utils
 import datetime, uuid
 
 @dataclass
 class ContactRequest:
     id: str
+    timestamp: datetime.datetime
     public_key: str
     raw: dict
     incoming: bool = False
@@ -71,6 +73,7 @@ class BridgedContent:
 @dataclass
 class Message:
     id: str
+    timestamp: datetime.datetime
     chat_id: str
     content: str
     content_type: types.Content
@@ -79,6 +82,7 @@ class Message:
     chat_type: types.Chat
     source: str
     raw: dict
+    edited_timestamp: Optional[datetime.datetime] = None
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
@@ -90,12 +94,13 @@ class Message:
         msg_type: int = raw["messageType"]
         params = {
             "id": raw["id"],
+            "timestamp": utils.to_datetime(raw["whisperTimestamp"]),
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
-            "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
             "image_urls": [],
-            "raw": raw
+            "raw": raw,
+            "edited_timestamp": utils.to_datetime(raw.get("editedAt"))
         }
 
         if len(raw["responseTo"]) > 0:

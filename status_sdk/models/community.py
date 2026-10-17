@@ -1,9 +1,11 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
+import datetime
 
 @dataclass
 class CommunityRequest:
     id: str
+    timestamp: datetime.datetime
     public_key: str
     community_id: str
     raw: dict
