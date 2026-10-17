@@ -2,7 +2,7 @@
 
 ## `Message`
 
-Returned by [`listen_messages`](./account.md#listen_messagescontentnone) and [`listen_message_mentions`](./account.md#listen_message_mentions) from `Account`.
+Returned by [`listen_events`](./account.md#listen_events), [`listen_messages`](./account.md#listen_messagescontentnone) and [`listen_message_mentions`](./account.md#listen_message_mentions) from `Account`.
 
 | Attribute | Type | Description |
 |----|----|-------------|
@@ -14,6 +14,7 @@ Returned by [`listen_messages`](./account.md#listen_messagescontentnone) and [`l
 | `timestamp` | `datetime.datetime` | When the message was sent. |
 | `chat_type` | [`types.Chat`](./types.md#chat) | What kind of chat the message was sent in. |
 | `source` | `str` | `"status"` for a regular message, or the platform name (e.g. `"Discord"`) for a [bridged message](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone). |
+| `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. Use it to reach fields this model does not surface - `mentions`, `albumId`, `clock`, `emojiHash` and so on. |
 | `image_urls` | `list[str]` | Local paths of attached images. Empty unless `content_type` is [`IMAGE`](./types.md#content) or [`STICKER`](./types.md#content). Contains more than one entry for an [album](./account.md#send_imagechat_id-file_paths-messagenone-reply_to_message_idnone). |
 | `reply_id` | `str` | The `id` of the message this one replies to. `None` if it is not a reply. |
 | `bridge_id` | `str` | The message's id **on the other platform**, for a [bridged message](./account.md#send_bridged_messagechat_id-message-namenone-usernamenone-user_idnone-message_idnone-reply_to_message_idnone-image_urlnone). `None` otherwise. |
@@ -62,12 +63,13 @@ for message in account.listen_messages():
 
 ## `ContactRequest`
 
-Returned by [`listen_contact_requests`](./account.md#listen_contact_requests) from `Account`.
+Returned by [`listen_events`](./account.md#listen_events) and [`listen_contact_requests`](./account.md#listen_contact_requests) from `Account`.
 
 | Attribute | Type | Description |
 |----|----|-------------|
 | `id` | `str` | The contact request id. Pass this as `request_id` to [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone) to approve it. |
 | `public_key` | `str` | Public key of the other account. |
+| `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. |
 | `incoming` | `bool` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). |
 | `accepted` | `bool` | Another user accepted a contact request that the account had sent. The contact is now mutual. |
 | `removed` | `bool` | A user has removed the account from their contacts. |
@@ -95,12 +97,14 @@ for request in account.listen_contact_requests():
 
 ## `CommunityRequest`
 
-Returned by [`listen_requests`](./community.md#listen_requests) from `Community`.
+Returned by [`listen_requests`](./community.md#listen_requests) from `Community`, and by [`listen_events`](./account.md#listen_events) from `Account`.
 
 | Attribute | Type | Description |
 |----|----|-------------|
 | `id` | `str` | The join request id. Pass this to [`accept`](./community.md#acceptpending_request_id) or [`decline`](./community.md#declinepending_request_id). |
 | `public_key` | `str` | Public key of the requesting member. |
+| `community_id` | `str` | The id of the community the request was sent to. |
+| `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. |
 | `pending` | `bool` | The request is waiting to be [accepted](./community.md#acceptpending_request_id) or [declined](./community.md#declinepending_request_id). |
 | `reject` | `bool` | The request was declined. |
 | `accept` | `bool` | The request was accepted and the member joined. |

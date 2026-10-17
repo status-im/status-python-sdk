@@ -724,6 +724,45 @@ deleted = account.delete_message(message_id)
 print(f"Deleted: {deleted}")
 ```
 
+#### `listen_events()`
+
+Listen for **every** SDK event on a single connection, **in real time** - new messages, mentions of the account, contact requests and community join requests. This is the umbrella listener: [`listen_messages`](./account.md#listen_messagescontentnone), [`listen_message_mentions`](./account.md#listen_message_mentions), [`listen_contact_requests`](./account.md#listen_contact_requests) and [`listen_requests`](./community.md#listen_requests) are all filters over it.
+
+Yields a `tuple` of an [`Event`](./types.md#event) and its payload, so the kind is checked before the payload is used:
+
+| Event | Payload | Meaning |
+|-----|-----|-------------|
+| `Event.MESSAGE` | [`Message`](./models.md#message) | A new message in any chat the account can see |
+| `Event.MENTION` | [`Message`](./models.md#message) | A message that mentions the account |
+| `Event.CONTACT_REQUEST` | [`ContactRequest`](./models.md#contactrequest) | A contact request was received, accepted or removed |
+| `Event.COMMUNITY_REQUEST` | [`CommunityRequest`](./models.md#communityrequest) | Somebody asked to join a community the account administers |
+
+```python
+from status_sdk import Account, types
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for event, payload in account.listen_events():
+    if event is types.Event.MENTION:
+        print(f"mentioned by {payload.from_public_key}: {payload.content}")
+
+    elif event is types.Event.MESSAGE:
+        print(f"{payload.chat_id}: {payload.content}")
+
+    elif event is types.Event.CONTACT_REQUEST and payload.incoming:
+        account.add_contact(payload.public_key, payload.id)
+
+    elif event is types.Event.COMMUNITY_REQUEST and payload.pending:
+        print(f"{payload.public_key} wants to join {payload.community_id}")
+```
+
+A message is yielded **once**, as either `Event.MESSAGE` or `Event.MENTION` - never both. Handle both kinds when reacting to incoming text, or use [`listen_messages`](./account.md#listen_messagescontentnone), which yields mentions as ordinary messages. Use this over running several listeners at once.
+
 #### `listen_messages(content=None)`
 
 Listen for new incoming messages **in real time**. This method is ideal for developing real time chat applications.

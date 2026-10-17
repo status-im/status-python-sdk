@@ -915,80 +915,90 @@ class Account:
 
         return not any(errors) if errors else False
 
-    def listen_contact_requests(self) -> Generator[models.ContactRequest, None, None]:
+    def listen_events(self) -> Generator[tuple[types.Event, Union[models.Message, models.ContactRequest, models.CommunityRequest]], None, None]:
         """
-        Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
+        Listen for all SDK events on a single connection - new messages,
+        contact requests and community join requests.
+
+        Output:
+            - `(types.Event, payload)` per event. The payload is a `models.Message` for
+              `Event.MESSAGE` / `Event.MENTION`, a `models.ContactRequest` for
+              `Event.CONTACT_REQUEST` and a `models.CommunityRequest` for
+              `Event.COMMUNITY_REQUEST`
         """
-        key_mapping = {
+        def get_message_event_type(raw: dict) -> types.Event:
+            """
+            A message that mentions the account is reported as `Event.MENTION`
+            """
+            # `@0x00001` mentions everybody in the chat, `@<public key>` mentions the account only
+            mention_tokens = ["@0x00001", f"@{self.info['public_key']}"]
+            text: str = raw.get("text") or ""
+            if any(token in text for token in mention_tokens):
+                return types.Event.MENTION
+
+            return types.Event.MESSAGE
+
+        # `Message.from_raw` only builds the content types in `types.Content`
+        supported_content_types = [content_type.value for content_type in types.Content]
+        # Contact request state updates arrive as messages rather than notifications
+        contact_request_mapping = {
             16: "accepted",
             17: "removed"
         }
-        for message in self.signal.listen(["local-notifications", "messages.new"]):
-            event: dict = message.get("event", {})
 
-            if message["type"] == "local-notifications":
-                category = event.get("category")
-                if category == "contactRequest":
-                    yield models.ContactRequest(
-                        message["event"]["body"]["message"]["id"],
-                        message["event"]["body"]["message"]["from"],
-                        incoming=True
-                    )
-
-            if message["type"] == "messages.new" and "messages" in message["event"]:
-                messages: list[dict] = message["event"]["messages"]
-                for message in messages:
-                    public_key: str = message["from"]
-
-                    if self.info["public_key"] == public_key or message["contentType"] not in key_mapping:
-                        continue
-
-                    params = {
-                        "id": message["id"],
-                        "public_key": public_key,
-                        key_mapping[message["contentType"]]: True
-                    }
-                    yield models.ContactRequest(**params)
-
-    def listen_message_mentions(self) -> Generator[models.Message, None, None]:
-        """
-        Listen for `@0xpublic-key` mentions. Can be used for real time processing.
-        """
-        mention_everyone = "@0x00001"
-        account_mention = f"@{self.info['public_key']}"
-
-        for message in self.signal.listen("local-notifications"):
-            event: dict = message.get("event", {})
-            category = event.get("category")
-            if category != "newMessage":
-                continue
-
-            current_text: str = event["body"]["message"]["text"]
-            if mention_everyone in current_text or account_mention in current_text:
-                yield models.Message.from_raw(event["body"]["message"])
-
-    def listen_messages(self, content: Optional[Union[list[types.Content], types.Content]] = None) -> Generator[models.Message, None, None]:
-        """
-        Listen for new messages continuously. Can be used for real time processing.
-        """
-        if isinstance(content, type(None)):
-            content = []
-        elif isinstance(content, types.Content):
-            content = [content]
-
-        allowed_content_types = [content_type.value for content_type in (content if content else types.Content)]
         albums: dict[str, list[dict]] = {}
         processed: list[str] = []
         SIZE = 100
-        for message in self.signal.listen("messages.new"):
-            event: dict = message.get("event", {})
-            raw_messages: list[dict] = event.get("messages", [])
-            for raw in raw_messages:
-                if raw["contentType"] not in allowed_content_types or raw["id"] in processed:
+        for signal in self.signal.listen(["local-notifications", "messages.new"]):
+            event: dict = signal.get("event", {})
+
+            if signal["type"] == "local-notifications":
+                if event.get("category") == "contactRequest":
+                    yield types.Event.CONTACT_REQUEST, models.ContactRequest(
+                        event["body"]["message"]["id"],
+                        event["body"]["message"]["from"],
+                        event,
+                        True
+                    )
+
+                continue
+
+            for request in event.get("requestsToJoinCommunity") or []:
+                try:
+                    state = types.Request(request["state"])
+                except ValueError:
+                    continue
+
+                params = {
+                    "id": request["id"],
+                    "community_id": request["communityId"],
+                    "public_key": request["publicKey"],
+                    "raw": request,
+                    state.name.lower(): True
+                }
+                yield types.Event.COMMUNITY_REQUEST, models.CommunityRequest(**params)
+
+            for raw in event.get("messages", []):
+                public_key: str = raw["from"]
+
+                if raw["contentType"] in contact_request_mapping:
+                    if self.info["public_key"] == public_key:
+                        continue
+
+                    params = {
+                        "id": raw["id"],
+                        "public_key": public_key,
+                        "raw": raw,
+                        contact_request_mapping[raw["contentType"]]: True
+                    }
+                    yield types.Event.CONTACT_REQUEST, models.ContactRequest(**params)
+                    continue
+
+                if raw["contentType"] not in supported_content_types or raw["id"] in processed:
                     continue
 
                 if not raw.get("albumId"):
-                    yield models.Message.from_raw(raw)
+                    yield get_message_event_type(raw), models.Message.from_raw(raw)
                     processed.append(raw["id"])
                     continue
 
@@ -1004,12 +1014,46 @@ class Account:
                     point["image"]
                     for point in albums[album_id]
                 ]
-                yield models.Message.from_raw(raw)
+                yield get_message_event_type(raw), models.Message.from_raw(raw)
                 processed.append(raw["id"])
                 albums.pop(album_id)
 
             if len(processed) == SIZE:
                 processed = []
+
+    def listen_contact_requests(self) -> Generator[models.ContactRequest, None, None]:
+        """
+        Listen for incoming contact requests and for contact requests that were accepted. Can be used for real time processing.
+        """
+        for event, payload in self.listen_events():
+            if event == types.Event.CONTACT_REQUEST:
+                yield payload
+
+    def listen_message_mentions(self) -> Generator[models.Message, None, None]:
+        """
+        Listen for `@0xpublic-key` mentions. Can be used for real time processing.
+        """
+        for event, payload in self.listen_events():
+            if event == types.Event.MENTION:
+                yield payload
+
+    def listen_messages(self, content: Optional[Union[list[types.Content], types.Content]] = None) -> Generator[models.Message, None, None]:
+        """
+        Listen for new messages continuously. Can be used for real time processing.
+        """
+        if isinstance(content, type(None)):
+            content = []
+        elif isinstance(content, types.Content):
+            content = [content]
+
+        allowed_content_types = [content_type for content_type in (content if content else types.Content)]
+
+        for event, payload in self.listen_events():
+            if event != types.Event.MESSAGE:
+                continue
+
+            if payload.content_type in allowed_content_types:
+                yield payload
 
     def get_messages(self, chat_id: str, start_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None, end_timestamp: Optional[Union[str, datetime.datetime, datetime.date, pd.Timestamp]] = None) -> list[dict]:
         """

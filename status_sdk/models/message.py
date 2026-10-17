@@ -7,6 +7,7 @@ import datetime, uuid
 class ContactRequest:
     id: str
     public_key: str
+    raw: dict
     incoming: bool = False
     accepted: bool = False
     removed: bool = False
@@ -77,6 +78,7 @@ class Message:
     timestamp: datetime.datetime
     chat_type: types.Chat
     source: str
+    raw: dict
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
@@ -92,7 +94,8 @@ class Message:
             "from_public_key": raw["from"],
             "timestamp": datetime.datetime.fromtimestamp(raw["whisperTimestamp"] / 1_000),
             "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
-            "image_urls": []
+            "image_urls": [],
+            "raw": raw
         }
 
         if len(raw["responseTo"]) > 0:

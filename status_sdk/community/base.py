@@ -1,5 +1,5 @@
 from ..account import Account
-from .. import exceptions, models
+from .. import exceptions, models, types
 from .channel import Channel
 from typing import Union, Optional, Generator
 from ..utils import community as utils
@@ -13,13 +13,6 @@ class Community:
         1: "owner",
         4: "admin",
         5: "token_master"
-    }
-
-    __request_states = {
-        1: "pending",
-        2: "reject",
-        3: "accept",
-        4: "cancel"
     }
 
     def __init__(self, account: Account, community_id: Optional[str] = None, url: Optional[str] = None, data_folder: Optional[str] = None):
@@ -286,27 +279,14 @@ class Community:
         """
         Listen for commnunity requests
         """
-        key = "requestsToJoinCommunity"
-        for message in self.__account.signal.listen("messages.new"):
-            event: dict = message.get("event", {})
-
-            if key not in event:
+        for event_type, payload in self.__account.listen_events():
+            if event_type is not types.Event.COMMUNITY_REQUEST:
                 continue
 
-            for request in event[key]:
-                if request.get("communityId") != self.id:
-                    continue
+            if payload.community_id != self.id:
+                continue
 
-                state = self.__request_states.get(request["state"])
-                if not state:
-                    continue
-
-                params = {
-                    "id": request["id"],
-                    "public_key": request["publicKey"],
-                    state: True
-                }
-                yield models.CommunityRequest(**params)
+            yield payload
 
     @property
     def categories(self) -> dict[str, str]:

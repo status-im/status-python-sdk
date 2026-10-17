@@ -59,3 +59,29 @@ for msg in account.listen_messages():
     if msg.chat_type == types.Chat.GROUP:
         print(f"Group message: {msg.content}")
 ```
+
+## `Event`
+
+The kind of event yielded by [`listen_events`](./account.md#listen_events), paired with its payload.
+
+| Name | Value | Payload | Meaning |
+|-----|-----|-----|-------------|
+| `MESSAGE` | `1` | [`Message`](./models.md#message) | A new message in any chat the account can see. |
+| `MENTION` | `2` | [`Message`](./models.md#message) | A message mentioning the account - `@<public key>`, or `@0x00001` for everybody in the chat. |
+| `CONTACT_REQUEST` | `3` | [`ContactRequest`](./models.md#contactrequest) | A contact request was received, accepted or removed. |
+| `COMMUNITY_REQUEST` | `4` | [`CommunityRequest`](./models.md#communityrequest) | Somebody asked to join a community the account administers. |
+
+```python
+from status_sdk import Account, types
+
+account = Account()
+params = {
+    "name": "status-app-bot",
+    "password": "SNTPUMP"
+}
+account.login(**params)
+
+for event, payload in account.listen_events():
+    if event is types.Event.MENTION:
+        print(f"mentioned by {payload.from_public_key}")
+```

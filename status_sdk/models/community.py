@@ -5,6 +5,8 @@ from typing import Optional
 class CommunityRequest:
     id: str
     public_key: str
+    community_id: str
+    raw: dict
     pending: bool = False
     reject: bool = False
     accept: bool = False
