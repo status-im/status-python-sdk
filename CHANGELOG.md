@@ -2,6 +2,26 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-10-19
+
+### Added
+
+- `def listen_events` in `class Account` - listen for every SDK event over a single connection - new messages, mentions, contact requests and community join requests.
+- `Event` - yielded by `def listen_events` alongside the payload, to tell the kind of event apart
+- Model properties. `raw` holds the untouched [status-go] body the model was parsed from, so fields the model does not expose are still reachable
+    - `Message` - `raw`, `edited_timestamp` and `text`, which holds only what the sender typed - unlike `content`, which for an image is the caption followed by the image paths
+    - `ContactRequest` - `raw`, `timestamp` and `text`, the note sent with the request
+    - `CommunityRequest` - `raw`, `timestamp` and `community_id`, which identifies the community a join request belongs to
+
+### Changed
+
+- The existing listeners are now `def listen_events` filtered down to a single event kind, so they all share one connection
+    - `def listen_messages`
+    - `def listen_contact_requests`
+    - `def listen_message_mentions`
+    - `def listen_requests` in `class Community`
+- Edited messages are yielded again by `def listen_events` and `def listen_messages`, under the same `id` as the original with the updated content and `edited_timestamp` set.
+
 ## [1.3.0] - 2026-10-11
 
 ### Added
@@ -242,6 +262,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.4.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.4.0
 [1.3.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.3.0
 [1.2.3]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.3
 [1.2.2]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.2
