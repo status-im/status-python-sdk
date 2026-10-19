@@ -72,6 +72,7 @@ Returned by [`listen_events`](./account.md#listen_events) and [`listen_contact_r
 | `id` | `str` | The contact request id. Pass this as `request_id` to [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone) to approve it. |
 | `timestamp` | `datetime.datetime` | When the request was sent, taken from the message that carried it. |
 | `public_key` | `str` | Public key of the other account. |
+| `text` | `str` | The message that came with the request |
 | `raw` | `dict` | The untouched payload Status Backend sent, exactly as it arrived. |
 | `incoming` | `bool` | Another user sent a contact request to the account. Approve it with [`add_contact`](./account.md#add_contactpublic_key-request_idnone-display_namenone). |
 | `accepted` | `bool` | Another user accepted a contact request that the account had sent. The contact is now mutual. |

@@ -957,6 +957,7 @@ class Account:
                         event["body"]["message"]["id"],
                         utils.to_datetime(event["body"]["message"]["whisperTimestamp"]),
                         event["body"]["message"]["from"],
+                        event["body"]["message"]["text"],
                         event,
                         True
                     )
@@ -991,7 +992,8 @@ class Account:
                         "timestamp": utils.to_datetime(raw["whisperTimestamp"]),
                         "public_key": public_key,
                         "raw": raw,
-                        contact_request_mapping[raw["contentType"]]: True
+                        contact_request_mapping[raw["contentType"]]: True,
+                        "text": raw["text"]
                     }
                     yield types.Event.CONTACT_REQUEST, models.ContactRequest(**params)
                     continue

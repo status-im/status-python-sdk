@@ -9,6 +9,7 @@ class ContactRequest:
     id: str
     timestamp: datetime.datetime
     public_key: str
+    text: str
     raw: dict
     incoming: bool = False
     accepted: bool = False
