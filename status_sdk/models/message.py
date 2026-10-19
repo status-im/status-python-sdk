@@ -86,6 +86,7 @@ class Message:
     image_urls: list[str] = field(default_factory=list)
     reply_id: Optional[str] = None
     bridge_id: Optional[str] = None
+    text: Optional[str] = None
     payment_requests: list[PaymentRequest] = field(default_factory=list)
 
     @classmethod
@@ -98,6 +99,7 @@ class Message:
             "chat_id": raw["chatId"],
             "from_public_key": raw["from"],
             "source": raw.get("bridgeMessage", {}).get("bridgeName", "status"),
+            "text": None,
             "image_urls": [],
             "raw": raw,
             "edited_timestamp": utils.to_datetime(raw.get("editedAt"))
@@ -118,10 +120,12 @@ class Message:
         # Text & Emojis
         if content_type in [types.Content.TEXT.value, types.Content.EMOJI.value]:
             params["content"] = raw["text"]
+            params["text"] = raw["text"]
             params["content_type"] = types.Content.TEXT if content_type == types.Content.TEXT.value else types.Content.EMOJI
         # Sticker
         elif content_type == types.Content.STICKER.value:
             params["content"] = raw["sticker"]["url"]
+            params["text"] = params["content"]
             params["image_urls"] += [params["content"]]
             params["content_type"] = types.Content.STICKER
         # Image
@@ -135,9 +139,11 @@ class Message:
             caption = f"{text}\n\n" if len(text) > 0 else ""
             params["content"] = caption + "\n".join(img_paths)
             params["content_type"] = types.Content.IMAGE
+            params["text"] = raw["text"]
         # Bridged Message
         elif content_type == types.Content.BRIDGED.value:
             params["content"] = raw["bridgeMessage"]["content"]
+            params["text"] = params["content"]
             params["content_type"] = types.Content.BRIDGED
             params["bridge_id"] = raw["bridgeMessage"]["messageID"]
             reply_id = raw["bridgeMessage"].get("parentMessageID")

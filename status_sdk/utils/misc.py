@@ -13,7 +13,7 @@ def to_datetime(value: Optional[int]) -> Optional[datetime.datetime]:
 
     try:
         timestamp = datetime.datetime.fromtimestamp(value)
-    except OSError:
+    except:
         timestamp = datetime.datetime.fromtimestamp(value / 1_000)
 
     return timestamp

@@ -9,6 +9,7 @@ Returned by [`listen_events`](./account.md#listen_events), [`listen_messages`](.
 | `id` | `str` | The message id. Can be passed to [`delete_message`](./account.md#delete_messageid) or used as a `reply_to_message_id`. |
 | `chat_id` | `str` | The chat the message was sent in. |
 | `content` | `str` | The message's text. For an [image](./types.md#content), this is the caption (if any) followed by the image path(s). |
+| `text` | `str` | The message's raw text/caption. |
 | `content_type` | [`types.Content`](./types.md#content) | What kind of content the message carries. |
 | `from_public_key` | `str` | Public key of the sender. |
 | `timestamp` | `datetime.datetime` | When the message was sent. |
