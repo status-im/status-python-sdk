@@ -1,21 +1,3 @@
-ALCHEMY_CHAIN_IDS = {
-    "eth-mainnet": 1,
-    "polygon-mainnet": 137,
-    "polygon-amoy": 80002,
-    "arb-mainnet": 42161,
-    "opt-mainnet": 10,
-    "base-mainnet": 8453,
-    "zksync-mainnet": 324,
-    "blast-mainnet": 81457,
-    "linea-mainnet": 59144,
-    "worldchain-mainnet": 480,
-    "mantle-mainnet": 5000,
-    "scroll-mainnet": 534352,
-    "shape-mainnet": 360,
-    "apechain-mainnet": 33139,
-    "apechain-curtis": 33111,
-}
-
 EMOJI_UNICODES = {
     ":grinning:": "1f600",
     ":smiley:": "1f603",

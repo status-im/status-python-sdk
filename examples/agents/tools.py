@@ -30,10 +30,10 @@ class AccountBalanceTool(StatusBaseTool):
 
     def _run(self, ccy: str, include_market: bool) -> str:
 
-        balance = self.account[ccy]
+        balance = self.account.wallet[ccy]
 
         if include_market:
-            market_info = self.account.get_market(balance["address"].to_list(), balance["chain_id"].unique().tolist())
+            market_info = self.account.wallet.get_current_market_info(balance["address"].to_list(), balance["chain_id"].unique().tolist(), ccy)
             balance = balance.merge(market_info.drop(["timestamp"], axis=1)\
                                     .rename(columns={"token_address": "address"}), "left", ["chain_id", "address"])
 
@@ -74,7 +74,7 @@ class SearchTokenTool(StatusBaseTool):
             ]).to_markdown(index=False)
             return output
 
-        tokens = self.account.get_tokens()
+        tokens = self.account.wallet.available_tokens
         if not token_symbols:
             token_symbols = []
 
@@ -96,7 +96,7 @@ class SearchExternalBalanceTool(StatusBaseTool):
     args_schema: Type[BaseModel] = models.BalanceSearchInput
 
     def _run(self, chain_id: int, token_addresses: list[str], wallet_address: str, ccy: str) -> str:
-        balance = self.account.get_balance(
+        balance = self.account.wallet.search(
             token_addresses,
             chain_id,
             wallet_address,
@@ -171,7 +171,7 @@ class SearchMessagesTool(StatusBaseTool):
             payment_requests: list[dict] = message.get("payment_requests", [])
             payments = []
             for payment_request in payment_requests:
-                tokens = self.account.get_tokens()
+                tokens = self.account.wallet.available_tokens
                 chain_id, address = payment_request["tokenKey"].split("-")
                 query = (tokens["address"].str.lower() == address.lower()) & (tokens["chain_id"] == int(chain_id))
                 decimals = int(tokens.loc[query, "decimals"].drop_duplicates().iloc[0])
@@ -194,18 +194,15 @@ class SearchMessagesTool(StatusBaseTool):
 class SearchTransactionsTool(StatusBaseTool):
 
     name: str = "search_transactions"
-    description: str = "Get historical wallet transactions (regular, internal and ERC-20 transfers) for the given chain IDs, token symbols and date range. Set `refresh=True` to force a fresh fetch from Alchemy instead of returning the cached history."
+    description: str = "Get historical wallet transactions (regular, internal and ERC-20 transfers) for the given chain IDs, token symbols and date range."
     args_schema: Type[BaseModel] = models.TransactionSearchInput
 
-    def _run(self, chain_ids: Optional[list[int]], token_symbols: Optional[list[str]], refresh: bool, start_date: Optional[models.DateStr], end_date: Optional[models.DateStr]):
+    def _run(self, chain_ids: Optional[list[int]], token_symbols: Optional[list[str]], start_date: Optional[models.DateStr], end_date: Optional[models.DateStr]):
 
-        transactions = self.account.get_transactions(refresh)
-
-        if chain_ids:
-            transactions = transactions.loc[transactions["chain_id"].isin(chain_ids)].reset_index(drop=True)
+        transactions = self.account.wallet.get_transactions(chain_ids=chain_ids)
 
         if token_symbols:
-            transactions = transactions.loc[transactions["symbol"].isin(token_symbols)].reset_index(drop=True)
+            transactions = transactions.loc[transactions["token_symbol"].isin(token_symbols)].reset_index(drop=True)
 
         start_date = self.to_datetime(start_date)
         if start_date:
@@ -237,7 +234,7 @@ class SendTransactionTool(StatusBaseTool):
 
     def _run(self, address: str, symbol: str, amount: float, chain_id: int) -> str:
         try:
-            transaction_hash = self.account.send_transaction(address, symbol, amount, chain_id)
+            transaction_hash = self.account.wallet.send_transaction(address, symbol, amount, chain_id)
         except exceptions.InvalidTokenError as error:
             return f"Could not send {amount} {symbol} on chain ID {chain_id}: {error}"
         except exceptions.WalletNotConfiguredError as error:
@@ -255,25 +252,25 @@ class SwapTokensTool(StatusBaseTool):
 
     name: str = "swap_tokens"
     description: str = (
-        "Swap tokens in the account's wallet on a single chain and return the transaction hash to monitor its progress. "
-        "Only ETH <-> ERC-20 swaps are supported (e.g. ETH -> SNT or SNT -> ETH); either `from_token` or `to_token` must be ETH. "
-        "ERC-20 <-> ERC-20 swaps (e.g. SNT -> USDT) are not supported."
+        "Swap tokens in the account's wallet and return the transaction hash to monitor its progress. "
+        "Both ETH <-> ERC-20 swaps (e.g. ETH -> SNT) and ERC-20 <-> ERC-20 swaps (e.g. SNT -> USDT) are supported, "
+        "on a single chain or across two different chains."
     )
     args_schema: Type[BaseModel] = models.SwapTokensInput
 
-    def _run(self, from_token: str, to_token: str, amount: float, chain_id: int) -> str:
+    def _run(self, from_token: str, to_token: str, amount: float, from_chain_id: int, to_chain_id: Optional[int]) -> str:
         try:
-            transaction_hash = self.account.swap_tokens(from_token, to_token, amount, chain_id)
+            transaction_hash = self.account.wallet.swap_tokens(from_token, to_token, amount, from_chain_id, to_chain_id)
         except exceptions.InvalidTokenError as error:
-            return f"Could not swap {amount} {from_token} to {to_token} on chain ID {chain_id}: {error}"
+            return f"Could not swap {amount} {from_token} to {to_token} from chain ID {from_chain_id}: {error}"
         except exceptions.WalletNotConfiguredError as error:
             return f"Wallet is not configured for swaps: {error}"
         except exceptions.NotLoggedInError as error:
             return f"Cannot perform a swap: {error}"
-        except exceptions.BackendError as error:
-            return f"Could not build a swap route for {from_token} -> {to_token} on chain ID {chain_id}: {error}"
+        except exceptions.SwapError as error:
+            return f"Could not swap {amount} {from_token} to {to_token} from chain ID {from_chain_id}: {error}"
 
         if not transaction_hash:
-            return f"Swap of {amount} {from_token} to {to_token} on chain ID {chain_id} could not be sent..."
+            return f"Swap of {amount} {from_token} to {to_token} from chain ID {from_chain_id} could not be sent..."
 
-        return f"Swapped {amount} {from_token} to {to_token} on chain ID {chain_id}!\nTransaction hash: {transaction_hash}\nMonitor at: http://etherscan.io/tx/{transaction_hash}"
+        return f"Swapped {amount} {from_token} to {to_token} from chain ID {from_chain_id}!\nTransaction hash: {transaction_hash}\nMonitor at: http://etherscan.io/tx/{transaction_hash}"

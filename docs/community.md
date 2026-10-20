@@ -184,7 +184,7 @@ Returns `pd.DataFrame`, one row per `owner` per contract. Rows are sorted by `sy
 |--------|------|-------------|
 | `symbol` | `str` | The token's symbol, as minted by the community. |
 | `name` | `str` | The token's name. |
-| `chain_id` | `int` | Chain ID the contract is deployed on. Matches values from [`chains`](./account.md#chains). |
+| `chain_id` | `int` | Chain ID the contract is deployed on. Matches the `id` values from [`available_chains`](./wallet.md#available_chains). |
 | `contract_address` | `str` | Address of the token contract on that chain. |
 | `owner` | `str` | Wallet address holding the token. |
 | `balance` | `int` | Number of tokens that wallet holds. |

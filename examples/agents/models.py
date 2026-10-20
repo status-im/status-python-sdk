@@ -55,7 +55,6 @@ class MessageInput(BaseModel):
 class TransactionSearchInput(BaseModel):
     chain_ids: Optional[list[int]] = Field(description="Chain IDs where the token exists.", default=None)
     token_symbols: Optional[list[str]] = Field(description="Token Symbol for the given Chain ID", default=None)
-    refresh: bool = Field(description="If `True` then the data will be refetched from scratch. If `False` then the data will be cached after the first call.")
     start_date: Optional[DateStr] = Field(description="Required to fetch chat messages from the specified date. Date should be in YYYY-MM-DD format.", default=None)
     end_date: Optional[DateStr] = Field(description="Required to fetch chat messages to the specified date. Date should be in YYYY-MM-DD format.", default=None)
 
@@ -69,10 +68,11 @@ class SwapTokensInput(BaseModel):
     from_token: str = Field(description="The token to swap from. Either a valid Status token symbol (e.g. `ETH`, `SNT`) or its token address.")
     to_token: str = Field(description="The token to swap to. Either a valid Status token symbol (e.g. `ETH`, `SNT`) or its token address.")
     amount: float = Field(description="The amount of `from_token` to swap.")
-    chain_id: int = Field(description=(
-        "Chain ID where both tokens exist. The swap happens on a single chain, so `from_token` and `to_token` "
-        "must be on the same chain."
-    ), default=1)
+    from_chain_id: int = Field(description="Chain ID where `from_token` exists.", default=1)
+    to_chain_id: Optional[int] = Field(description=(
+        "Chain ID where `to_token` exists. If left blank, it defaults to `from_chain_id`, so the swap happens on a single chain. "
+        "If different from `from_chain_id`, the swap is a cross-chain swap."
+    ), default=None)
 
 class NoArgs(BaseModel):
     pass
