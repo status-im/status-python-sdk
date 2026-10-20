@@ -1,0 +1,37 @@
+name: Nix
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flake:
+    name: nix flake check
+    runs-on: ['self-hosted','ubuntu-22.04']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Builds the package, imports the SDK and verifies that the version and
+      # the packaged dependencies match `pyproject.toml`.
+      - name: Check the flake
+        run: nix flake check --print-build-logs
+
+      - name: Build the package
+        run: nix build .#status-sdk
