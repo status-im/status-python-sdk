@@ -146,3 +146,11 @@ The compose file reads three variables from the environment. All of them have a 
 ```
 STATUS_GO_COMMIT=2bee8b6a38cdc8f92d74e2dbb8c4e77fbbeea149 PLATFORM=linux/amd64 docker compose -f status_sdk/docker-compose.yaml up -d
 ```
+
+### Nix
+
+The SDK is packaged as a nix flake. It provides the library itself, a development shell and a set of checks.
+
+```bash
+nix develop
+```
