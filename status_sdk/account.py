@@ -1723,6 +1723,7 @@ class Account:
                                 key: wallet_address,
                                 "maxCount": hex(1_000),
                                 "pageKey": page_key if isinstance(page_key, str) else None,
+                                "withMetadata": True,
                                 "category": ["external", "internal", "erc20"]
                             }
                         ]
@@ -1752,21 +1753,46 @@ class Account:
             "category": "trx_type",
             "chain_id": "chain_id"
         }
+        metadata = final.get("metadata", [None] * len(final))
         final = final[list(columns.keys())].rename(columns=columns)
 
         block_mapping = {}
-        for block_number in final["block_number"].unique():
+        conflicting_blocks = set()
+        for chain_id, block_number, transfer_metadata in zip(final["chain_id"], final["block_number"], metadata):
+            if not isinstance(transfer_metadata, dict):
+                continue
+            value = transfer_metadata.get("blockTimestamp")
+            if not isinstance(value, str):
+                continue
+            try:
+                timestamp = datetime.datetime.fromisoformat(value)
+                if timestamp.utcoffset() is not None:
+                    key = (chain_id, block_number)
+                    seconds = int(timestamp.timestamp())
+                    if key in block_mapping and block_mapping[key] != seconds:
+                        conflicting_blocks.add(key)
+                    block_mapping[key] = seconds
+            except (ValueError, OverflowError, OSError):
+                # Missing or invalid metadata uses the same chain-scoped fallback.
+                continue
+
+        chain_domains = {chain_id: domain for domain, chain_id in constants.ALCHEMY_CHAIN_IDS.items()}
+        for chain_id, block_number in final[["chain_id", "block_number"]].drop_duplicates().itertuples(index=False, name=None):
+            key = (chain_id, block_number)
+            if key in block_mapping and key not in conflicting_blocks:
+                continue
             payload = {
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "eth_getBlockByNumber",
                 "params": [block_number, False],
             }
-            url = f"https://eth-mainnet.g.alchemy.com/v2/{self.__alchemy_token}"
+            url = f"https://{chain_domains[chain_id]}.g.alchemy.com/v2/{self.__alchemy_token}"
             response = requests.post(url, json=payload)
-            block_mapping[block_number] = int(response.json()["result"]["timestamp"], 16)
+            block_mapping[key] = int(response.json()["result"]["timestamp"], 16)
 
-        final.insert(0, "timestamp", pd.to_datetime(final["block_number"].map(block_mapping), unit="s", utc=True))
+        timestamps = [block_mapping[key] for key in zip(final["chain_id"], final["block_number"])]
+        final.insert(0, "timestamp", pd.to_datetime(timestamps, unit="s", utc=True))
         final = final.assign(
             block_number = final["block_number"].apply(lambda value: int(value, 16)),
             trx_type = final.apply(lambda row: "sent" if row["from_address"].lower() == wallet_address.lower() else "received", axis=1),

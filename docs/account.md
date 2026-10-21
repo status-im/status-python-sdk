@@ -1348,29 +1348,29 @@ Returns `pd.DataFrame`.
 
 #### `get_transactions(refresh=False)`
 
-Retrieve the historical transactions for the **logged-in account wallet** across all chains in [`chains`](./account.md#chains). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone) and combines three transaction types into a single `DataFrame`: regular transactions (`transaction`), internal transactions (`internal`) and ERC-20 token transfers (`ERC-20`).
+Retrieve historical transfers for the **logged-in account wallet** from the endpoints configured in [`ALCHEMY_CHAIN_IDS`](../status_sdk/constants.py). Data is fetched from the [Alchemy REST API](https://www.alchemy.com/) using the `alchemy_token` provided during [`login`](./account.md#loginpassword-key_uidnone-namenone-mnemonicnone-infura_tokennone-alchemy_tokennone-coingecko_api_keynone). The requested categories are `external`, `internal` and `erc20`; the returned `trx_type` classifies each transfer as `sent` or `received`.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
 | `refresh` | `bool` | No | When `True`, the full transaction history is refetched from Alchemy and the cache is replaced. When `False` (default), the cached `DataFrame` from the first call is returned. |
 
-Returns `pd.DataFrame`, sorted by `timestamp` in descending order (newest first).
+Returns `pd.DataFrame`, retaining the existing descending `block_number` sort. Heights are not comparable across chains; callers needing chronological order can sort the result by `timestamp`.
+
+Transaction requests include Alchemy's `withMetadata` option so that block timestamps can be read from the transfer response without extra block requests. If timestamp metadata is missing or invalid, the SDK looks up each distinct `(chain_id, block_number)` on that chain's endpoint. Cached calls retain the existing `refresh=False` behavior. See [the credential-free regression tests and request-count benchmark](./transaction-history-testing.md).
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `timestamp` | `datetime.datetime` | Block timestamp when the transaction was confirmed. |
-| `trx_type` | `str` | Type of transaction: `transaction` (regular EOA call), `internal` (contract-initiated transfer) or `ERC-20` (token transfer). |
-| `trx_hash` | `str` | Unique transaction hash. Can be appended to `https://etherscan.io/tx/` to inspect the transaction on Etherscan. |
+| `timestamp` | UTC datetime | Block timestamp on the transaction's chain. |
+| `block_number` | `int` | Block height on that chain. |
+| `trx_hash` | `str` | Transaction hash. Use the corresponding chain's explorer to inspect it. |
 | `from_address` | `str` | Wallet address that initiated the transaction. |
 | `to_address` | `str` | Wallet address that received the transaction. |
-| `movement` | `str` | `sent` if the wallet has made the transaction, otherwise `received`. |
-| `token_address` | `str` | Token contract address. |
-| `token_symbol` | `str` | Token symbol (e.g. `ETH`, `SNT`, `USDT`). |
-| `amount` | `float` | Decimal-adjusted transaction amount. **Negative** when `movement` is `sent`, **positive** when `received`. |
-| `is_error` | `bool` | `True` if the transaction failed on-chain. |
+| `amount` | `float` | Decimal-adjusted transaction amount. **Negative** when `trx_type` is `sent`, **positive** when `received`. |
+| `symbol` | `str` | Asset symbol from the transfer response. |
+| `trx_type` | `str` | `sent` if the wallet initiated the transfer, otherwise `received`. |
 | `chain_id` | `int` | Chain ID where the transaction occurred. Matches values from [`chains`](./account.md#chains). |
-| `decimals` | `int` | Number of decimals used to scale `amount`. Defaults to `18` for native-token transfers. |
-| `trx_fee` | `float` | Gas fee paid in the chain's native token, computed as `gas_price * gas_used / 10**18`. Populated only for `sent` rows; `0` for `received` rows since the receiver does not pay gas. |
+
+This method does not currently return token contract addresses, transaction fees, error status or a separate transfer-category column. These output fields and the existing sorting behavior are unchanged by the timestamp optimization.
 
 ```python
 from status_sdk import Account
