@@ -525,7 +525,7 @@ class Account:
                 "joined_timestamp": utils.to_datetime(community.get("joinedAt")),
                 "requested_timestamp": utils.to_datetime(community.get("requestedToJoinAt")),
                 "encrypted": community["encrypted"],
-                "members": len(community["members"]),
+                "members": community["membersCount"],
                 "channels": [
                     {
                         "id": chat["id"],

@@ -389,23 +389,40 @@ class Community:
         result = utils.get_community_info(self.__account, self.id)
         return result["outroMessage"]
 
-    def get_members(self, dataframe: bool = False) -> Union[dict[str, dict], pd.DataFrame]:
+    def get_members(self, raw: bool = False) -> pd.DataFrame:
         """
         Current community members.
 
         Parameters:
-            - `dataframe` - if `True` then a `dict` of the existing members will be returned. Use this where speed matters.
-                            If `False` then a `pd.DataFrame` of the existing members will be returned. Use this for data related pipelines.
+            - `dataframe` - if `True` then the raw fields are returned. Use this where speed matters.
+                            If `False` then additional information will be returned for all members. Use this for data related pipelines.
 
         Output:
-            - `dict` or `DataFrame` of the current community members
+            - `DataFrame` of the current community members
         """
-        raw_data: dict[str, dict] = utils.get_community_info(self.__account, self.id).get("members", {})
-        if not dataframe:
+        response = self.__account._call_rpc("messaging", "getCommunityMembers", [self.id])
+        error = response.get("error", {}) or {}
+        if error:
+            raise exceptions.BackendError(f"Could not get the members of community '{self.id}' - {error.get('message')}")
+
+        raw_data: list[dict] = (response.get("result") or {}).get("members") or []
+        if raw:
+            raw_data: pd.DataFrame = pd.DataFrame(raw_data).drop(["thumbnailImageClock", "colorId"], axis=1)
+            raw_data = raw_data.assign(
+                ensName = raw_data["ensName"].fillna(""),
+                ensVerified = raw_data["ensVerified"].fillna(False),
+                roles = raw_data["roles"].apply(lambda roles: [self.__role_mapping[role] for role in roles])
+            ).rename(columns={
+                "pubKey": "public_key",
+                "displayName": "display_name",
+                "ensName": "ens_name",
+                "ensVerified": "ens_verified"
+            })
             return raw_data
 
         members = []
-        for public_key, member_info in raw_data.items():
+        for member_info in raw_data:
+            public_key: str = member_info["pubKey"]
             response: dict = self.__account._call_rpc("messaging", "getContactByID", [public_key])
             result: dict = response.get("result", {})
             if not result:
@@ -415,10 +432,10 @@ class Community:
             members.append({
                 "public_key": public_key,
                 "chat_id": public_key,
-                "compressed_key": member_info["compressedKey"],
-                "emojis": member_info["emojiHash"],
+                "compressed_key": result["compressedKey"],
+                "emojis": result["emojiHash"],
                 "display_name": result.get("displayName"),
-                "alias": member_info["alias"],
+                "alias": result["alias"],
                 "roles": [self.__role_mapping[role] for role in member_info.get("roles", [0])],
                 "bio": result.get("bio", ""),
                 "url": url
@@ -556,7 +573,7 @@ class Community:
         """
         Get the total number of members in the community
         """
-        return len(self.get_members())
+        return utils.get_community_info(self.__account, self.id).get("membersCount", 0)
 
     def __normalise_public_keys(self, public_keys: Union[str, list[str]]) -> list[str]:
         """
