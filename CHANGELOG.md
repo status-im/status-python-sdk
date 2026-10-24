@@ -2,6 +2,24 @@
 
 All notable changes to `status-python-sdk` will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-10-24
+
+### Changed
+
+- `class Account` wallet functionality has been moved to `class Wallet` which can be accessed through `account.wallet`.
+- `def get_members` in `class Community` now uses the dedicated members RPC instead of reading the members out of the community's information. 
+    - A `DataFrame` is always returned instead of a `dict` when the members were not requested as a `DataFrame`. 
+    - Parameter `dataframe` has been renamed to `raw`. Use `raw=True` for the members as Status Backend holds them.
+
+### Added
+
+- Wallet functionality aligned with [Status 2.39](https://github.com/status-im/status-app/releases/tag/2.39.0)
+    - `def swap_tokens` swap tokens across two chains, not only within one
+    - `def activate_chain` and `def deactivate_chain` in `class Wallet` choose which networks the wallet uses
+    - `def get_transactions` in `class Wallet` - read the transaction history of any wallet address, not only the account's
+    - [Saved wallet addresses](https://status.app/help/wallet/save-a-wallet-address)
+    - A [Hermes](https://hermes-agent.nousresearch.com/) skill for `status-cli wallet`, so an agent can run its own wallet from the terminal
+
 ## [1.4.0] - 2026-10-19
 
 ### Added
@@ -262,6 +280,7 @@ will try to log in without a hashed password
 - Launch [status-go] Docker container with Python instead of manual `docker compose up -d` setup.
 - Custom library errors
 
+[1.5.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.5.0
 [1.4.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.4.0
 [1.3.0]: https://github.com/status-im/status-python-sdk/releases/tag/1.3.0
 [1.2.3]: https://github.com/status-im/status-python-sdk/releases/tag/1.2.3
