@@ -115,10 +115,42 @@ class MessageTooLongError(ValueError):
 class SendContentError(Exception):
     pass
 
+class InvalidChainIdError(Exception):
+    pass
+
+class ActiveChainLimitError(Exception):
+    pass
+
+class ChainDeactivationError(Exception):
+    pass
+
+class SavedAddressError(Exception):
+    pass
+
+class InvalidSavedAddressNameError(ValueError):
+    pass
+
 class InvalidCurrencyError(Exception):
     pass
 
 class InvalidTokenError(Exception):
+    pass
+
+class SwapError(Exception):
+    """
+    A swap could not be completed. If the approval transaction was already sent, its hash is
+    in `approval_tx_hash`, so the token does not have to be approved again.
+    """
+    def __init__(self, msg: Optional[str] = None, approval_tx_hash: Optional[str] = None):
+        self.approval_tx_hash = approval_tx_hash
+        if approval_tx_hash:
+            msg = f"{msg}\nThe approval transaction was already sent ({approval_tx_hash}), so it does not need to be approved again..."
+        super().__init__(msg)
+
+class InvalidAddressError(ValueError):
+    pass
+
+class InvalidLimitError(ValueError):
     pass
 
 class BackupError(Exception):

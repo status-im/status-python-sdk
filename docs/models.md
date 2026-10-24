@@ -139,7 +139,7 @@ Describe a token a community member must hold for a [permission](./community.md#
 
 | Attribute | Type | Required | Description |
 |----|----|----|-------------|
-| `symbol` | `str` | Yes | The token symbol, as it appears in [`get_tokens`](./account.md#get_tokens) on `Account`. |
+| `symbol` | `str` | Yes | The token symbol, as it appears in [`available_tokens`](./wallet.md#available_tokens) on `Wallet`. |
 | `amount` | `float` | Yes | The minimum amount a member must hold. Converted to wei using the token's own `decimals`, so it is written in human units - `10` means 10 tokens, not 10 wei. |
 | `chain_id` | `int` | No | The chain the token lives on. Defaults to `1` (Ethereum mainnet). |
 | `address` | `str` | No | The token's contract address. Needed only when the same `symbol` exists more than once on `chain_id`. |

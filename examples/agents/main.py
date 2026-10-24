@@ -49,7 +49,7 @@ class StatusToolKit:
             - The regular amount
         """
         chain_id, address = token_key.split("-")
-        tokens = self.account.get_tokens()
+        tokens = self.account.wallet.available_tokens
         query = (tokens["address"].str.lower() == address.lower()) & (tokens["chain_id"] == int(chain_id))
         decimals = tokens.loc[query, "decimals"].iloc[0]
         raw_amount = int(amount) / (10**int(decimals))

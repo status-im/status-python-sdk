@@ -26,7 +26,7 @@ The account's own standing in the community is reported by [`is_member`](./commu
 
 ## Roles
 
-Every member carries one or more **roles**, returned by [`get_members`](./community.md#get_membersdataframefalse). The raw `dict` form exposes the backend's numeric codes, while the `DataFrame` form resolves them to the names below.
+Every member carries one or more **roles**, returned by [`get_members`](./community.md#get_membersrawfalse). The backend reports numeric codes, which `get_members` resolves to the names below.
 
 | Code | Name | Description |
 |-----|-----|-------------|
@@ -35,7 +35,7 @@ Every member carries one or more **roles**, returned by [`get_members`](./commun
 | `4` | `admin` | Can manage members (ban, kick, accept, decline) and channels. |
 | `5` | `token_master` | Manages the community's tokens and token-gated permissions. |
 
-**Note**: the backend **omits** the `roles` key entirely for regular members - `0` / `none` is the fallback applied by the SDK, so it shows up in the `DataFrame` but never in the raw payload. Only the codes above are recognised; a member carrying any other code cannot be resolved by [`get_members(dataframe=True)`](./community.md#get_membersdataframefalse).
+**Note**: the backend can **omit** the `roles` key for regular members - `0` / `none` is the fallback applied by the SDK in the enriched form of [`get_members`](./community.md#get_membersrawfalse). Only the codes above are recognised; a member carrying any other code cannot be resolved by `get_members`.
 
 ## Control node
 
@@ -107,41 +107,34 @@ When either `url` or `community_id` is provided, the constructor acts based on t
 
 ## Methods
 
-### `get_members(dataframe=False)`
+### `get_members(raw=False)`
 
-The current members of the community, returned in one of two shapes.
-
-By default a **raw `dict`** is returned as it comes back from the backend, keyed by public key. This costs a single call, so it is the shape to reach for in membership checks, lookups and bots where speed matters. Passing `dataframe=True` instead returns an enriched `pd.DataFrame` that resolves each member's contact details and profile URL - that costs **two additional calls per member**. It can be used for reporting and data pipelines rather than instant checks.
+The current members of the community. By default the **enriched** shape is returned. It resolves each member's contact details and profile URL, which costs **two additional calls per member**, so it suits reporting and data pipelines. Passing `raw=True` instead returns the members as the backend reports them, which costs a **single call** - the shape to reach for in membership checks, lookups and bots where speed matters.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `dataframe` | `bool` | No | When `False` (the default), a raw `dict` keyed by public key is returned. When `True`, an enriched `pd.DataFrame` is returned. |
+| `raw` | `bool` | No | When `False` (the default), the enriched `pd.DataFrame` is returned. When `True`, the members are returned as the backend reports them, without the additional calls. |
 
-#### Raw `dict` - `dataframe=False`
+If the backend cannot return the members, a `BackendError` is raised with the community's id and the backend's message.
 
-Returns `dict[str, dict]`, keyed by the member's **public key**. An empty `dict` is returned when there are no members. Each value is the backend's member payload:
+#### Raw - `raw=True`
 
-| Key | Type | Description |
-|----|----|-------------|
-| `compressedKey` | `str` | The member's compressed chat key as shown in Status App. |
-| `emojiHash` | `list[str]` | The member's emoji identicon - a list of individual emojis, **not** a single string. Entries can be multi-codepoint (skin tones, ZWJ sequences), e.g. `🧑🏾‍✈️`. |
-| `alias` | `str` | The member's initial (generated) name, e.g. `Carefree Joyful Bushviper`. |
-| `colorId` | `int` | The id of the colour Status App assigns to the member's identicon. |
-| `last_update_clock` | `int` | The logical clock of the member's last update. |
-| `roles` | `list[int]` | The member's [role](./community.md#roles) codes - `1` owner, `4` admin, `5` token master. **Absent for regular members**, so read it with `member.get("roles", [0])`. |
+| Column | Type | Description |
+|--------|------|-------------|
+| `public_key` | `str` | Public key that uniquely identifies the member. |
+| `display_name` | `str` | The member's display name. |
+| `ens_name` | `str` | The member's [ENS name](https://status.app/help/profile/transfer-your-ens-name-to-status). An empty `str` when the member has none. |
+| `ens_verified` | `bool` | Whether the ENS name was verified. `False` when the member has no ENS name. |
+| `roles` | `list[str]` | The member's [roles](./community.md#roles), resolved to their names. |
 
-**Note**: this is the unmodified backend payload, so its keys are inconsistently cased (`compressedKey` next to `last_update_clock`), keys can be missing per member, and further keys may be present. The [`DataFrame`](./community.md#pddataframe---dataframetrue) form is the stable, documented shape.
-
-#### `pd.DataFrame` - `dataframe=True`
-
-Returns `pd.DataFrame`, one row per member. An empty `DataFrame` is returned when there are no members.
+#### Enriched - `raw=False`
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `public_key` | `str` | Public key that uniquely identifies the member. |
 | `chat_id` | `str` | Chat identifier used for direct messaging. |
 | `compressed_key` | `str` | The member's compressed chat key as shown in Status App. |
-| `emojis` | `list[str]` | The member's emoji identicon, passed through from `emojiHash` as a list of individual emojis. |
+| `emojis` | `list[str]` | The member's emoji identicon - a list of individual emojis, **not** a single string. Entries can be multi-codepoint (skin tones, ZWJ sequences), e.g. `🧑🏾‍✈️`. |
 | `display_name` | `str` | The member's display name. Members without one are shown as a short key + Status URL fragment. |
 | `alias` | `str` | The member's initial (generated) name. |
 | `roles` | `list[str]` | The member's [roles](./community.md#roles), resolved to their names. |
@@ -161,13 +154,13 @@ account.login(**params)
 url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
 community = Community(account, url=url)
 
-# Raw dict - one call, keyed by public key
-for public_key, member in community.get_members().items():
-    print(public_key, member["alias"])
-
-# DataFrame - enriched, for data pipelines
-members = community.get_members(dataframe=True)
+# Enriched - for data pipelines
+members = community.get_members()
 print(members[["display_name", "roles"]].to_markdown(index=False))
+
+# Raw - one call, for checks and lookups
+members = community.get_members(raw=True)
+print(members[["public_key", "ens_name"]].to_markdown(index=False))
 ```
 
 ![Community Members](./images/community/members.png)
@@ -184,7 +177,7 @@ Returns `pd.DataFrame`, one row per `owner` per contract. Rows are sorted by `sy
 |--------|------|-------------|
 | `symbol` | `str` | The token's symbol, as minted by the community. |
 | `name` | `str` | The token's name. |
-| `chain_id` | `int` | Chain ID the contract is deployed on. Matches values from [`chains`](./account.md#chains). |
+| `chain_id` | `int` | Chain ID the contract is deployed on. Matches the `id` values from [`available_chains`](./wallet.md#available_chains). |
 | `contract_address` | `str` | Address of the token contract on that chain. |
 | `owner` | `str` | Wallet address holding the token. |
 | `balance` | `int` | Number of tokens that wallet holds. |
@@ -282,15 +275,15 @@ Each member can be identified in three different ways, so you can pass whichever
 
 | Format | Example | Where to find it |
 |-------|--------|-----------------|
-| **Public key** | `0x04ebcad...` | The keys of [`get_members()`](./community.md#get_membersdataframefalse), or `public_key` in its `DataFrame` form |
-| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressedKey` in [`get_members()`](./community.md#get_membersdataframefalse), or the **chat key** in Status App |
-| **Account URL** | `https://status.app/u/...` | `url` in [`get_members(dataframe=True)`](./community.md#get_membersdataframefalse), or **Share profile** in Status App |
+| **Public key** | `0x04ebcad...` | `public_key` in [`get_members()`](./community.md#get_membersrawfalse) |
+| **Chat key** (compressed key) | `zQ3shYSHp7...` | `compressed_key` in [`get_members()`](./community.md#get_membersrawfalse), or the **chat key** in Status App |
+| **Account URL** | `https://status.app/u/...` | `url` in [`get_members()`](./community.md#get_membersrawfalse), or **Share profile** in Status App |
 
 Every value is normalised into the public key with [`get_public_key`](./account.md#get_public_keyvalue) before it is matched against the community's members, so the formats can be **mixed within the same list**.
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to ban. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersdataframefalse). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to ban. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersrawfalse). |
 | `delete_messages` | `bool` | No | When `True`, all messages sent by the banned members are also deleted. Defaults to `False`. |
 
 ```python
@@ -306,7 +299,7 @@ account.login(**params)
 url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
 community = Community(account, url=url)
 
-member = next(iter(community.get_members()))
+member = community.get_members(raw=True)["public_key"].iloc[0]
 community.ban(member, delete_messages=True)
 ```
 
@@ -357,7 +350,7 @@ Each member can be identified by their **public key**, **chat key** or **account
 
 | Name | Type | Required | Description |
 |-----|-----|-----|-------------|
-| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersdataframefalse). |
+| `public_keys` | `list[str]`<br>`str` | Yes | The **public keys** (`0x...`), **chat keys** (`zQ...`) or **account URLs** (`https://...`) of the members to remove. A single value can be passed as a `str`. Current members can be obtained from [`get_members`](./community.md#get_membersrawfalse). |
 
 ```python
 from status_sdk import Account, Community
@@ -372,7 +365,7 @@ account.login(**params)
 url = "https://status.app/c/G3QAAMQn9ueHRsR3W5Ouuy25fkCxziknAIEkCbYAoC04HjyGeQ6X8k45q3GVeyZiksbd38tQ4S_EfhrJKhRV3sDvjhmrCuSoDBIf2QJiEKwAOZipxis8ntNRVyPhC5IoWaEsj9X4P5zw093pcLofZzTV2gM=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9"
 community = Community(account, url=url)
 
-member = next(iter(community.get_members()))
+member = community.get_members(raw=True)["public_key"].iloc[0]
 community.kick(member)
 ```
 
@@ -595,7 +588,7 @@ channel.send_message("Hello from my Status bot!")
 
 The total number of members in the community is obtained by passing the community to the built-in `len()`.
 
-Returns `int`. This is the same count as the number of entries returned by [`get_members`](./community.md#get_membersdataframefalse), without building the `dict` or the `DataFrame`.
+Returns `int`. This is the same count as the number of entries returned by [`get_members`](./community.md#get_membersrawfalse), without the additional calls per member of the enriched `DataFrame`.
 
 ```python
 from status_sdk import Account, Community
@@ -801,7 +794,7 @@ print(community.is_encrypted)
 
 ### `is_member`
 
-Whether the logged-in account is a member of the community - that is, whether it appears in the community's [member list](./community.md#get_membersdataframefalse).
+Whether the logged-in account is a member of the community - that is, whether it appears in the community's [member list](./community.md#get_membersrawfalse).
 
 Returns `bool`. This is the same value as `is_member` in [`communities`](./account.md#communities) on `Account`.
 
